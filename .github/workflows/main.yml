@@ -118,7 +118,6 @@ jobs:
               "category": "utilities",
               "versions": [{
                 "version": "1.9.$N",
-                "buildVersion": "$N",
                 "date": "$DATA",
                 "localizedDescription": "Versão 1.9.$N",
                 "downloadURL": "$PUB/financas-$N.ipa",
