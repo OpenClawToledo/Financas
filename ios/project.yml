@@ -1,0 +1,52 @@
+# Projeto iOS gerado pelo XcodeGen (o GitHub gera o .xcodeproj a cada compilação).
+name: Financas
+options:
+  bundleIdPrefix: com.pessoal
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: pt-PT
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.9"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Financas:
+    type: application
+    platform: iOS
+    sources:
+      - path: Financas
+      - path: ../app/src/main/assets/index.html
+        buildPhase: resources
+      - path: ../app/src/main/assets/motor.js
+        buildPhase: resources
+      - path: ../app/src/main/assets/esquema.sql
+        buildPhase: resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Finanças
+        CFBundleDevelopmentRegion: pt-PT
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIUserInterfaceStyle: Dark
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        CFBundleURLTypes:
+          - CFBundleURLName: com.pessoal.financas
+            CFBundleURLSchemes: [financas]
+        LSApplicationQueriesSchemes: [sidestore]
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pessoal.financas
+        PRODUCT_NAME: Financas
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
+        ENABLE_BITCODE: "NO"

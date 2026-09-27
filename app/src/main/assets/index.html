@@ -316,10 +316,12 @@ body.rapido .veu{background:rgba(5,4,10,.45)}
 </nav>
 
 
+<script src="motor.js"></script>
 <script>
 "use strict";
 const ponte = window.App;
 const RAPIDO = location.hash === "#rapido";
+const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.financas);
 let S = null, aba = "feed", modo = "total", limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
 let extr = {ano:0, mes:0, tipo:"todas", ordem:"data", busca:""};
 
@@ -983,12 +985,22 @@ function telaPerfil(){
     + '<h3 class="h3">Seu nome</h3><label class="campo"><input id="pNome" value="'+esc(S.eu.nome)+'"></label><button class="btn" id="salvarPerfil">Salvar nome</button>';
   return h;
 }
+function secaoRapidoIOS(){
+  const passo = (t, d) => '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>'+t+'</b><small>'+d+'</small></div></div>';
+  return '<h3 class="h3">Lançamento rápido</h3><div class="contas-lista">'
+    + passo("Siri", "Diga “Lançar gasto no Finanças” e depois o valor e o que foi, como “5,50 café”. Fica guardado mesmo sem abrir o app.")
+    + passo("Toque traseiro", "No app Atalhos, crie um atalho com a ação “Novo lançamento” do Finanças. Depois: Ajustes → Acessibilidade → Toque → Toque traseiro → Dois toques → escolha esse atalho.")
+    + passo("Botão de Ação", "iPhone 15 Pro ou mais novo: Ajustes → Botão de Ação → Atalho → Novo lançamento.")
+    + passo("Lembretes de contas", "O iPhone avisa 3 dias antes e no dia de cada conta ainda não paga.")
+    + '</div>';
+}
 function telaMenu(){
   let h = secaoContaMenu();
   h += '<h3 class="h3">Organização</h3><button class="btn sec" data-contas>Contas e dívidas</button>';
-  h += '<h3 class="h3">Lançamento rápido</h3>'
+  if (IOS) h += secaoRapidoIOS();
+  else h += '<h3 class="h3">Lançamento rápido</h3>'
     + chave("swAgitar", "Agitar para lançar", "Agite o celular em qualquer app e o popup aparece", S.agitar);
-  if (S.agitar){
+  if (S.agitar && !IOS){
     h += '<div class="chips">'+[["0","Agitar forte"],["1","Normal"],["2","Agitar leve"]].map(([k,n]) => '<button class="chip'+(String(S.sens) === k ? " on" : "")+'" data-sens="'+k+'">'+n+'</button>').join("")+'</div>'
       + '<div class="linha-botoes"><button class="btn sec" id="testarPopup">Testar popup</button><button class="btn sec" id="ajPopup">Popup flutuante</button></div>'
       + '<div class="rotulo">Manter ativo mesmo fechando o app</div><div class="contas-lista">'
@@ -997,7 +1009,7 @@ function telaMenu(){
       + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Trancar nos recentes</b><small>Abra os apps recentes, segure o cartão do Finanças e toque no cadeado. Assim “limpar tudo” não o fecha.</small></div></div>'
       + '</div><button class="btn sec" id="ajApp">Outros ajustes do app</button>';
   }
-  h += chave("swNotif", "Notificação fixa", S.agitar ? "Sempre ligada enquanto o agitar estiver ativo" : "Lançar puxando a barra de notificações", S.notif || S.agitar)
+  if (!IOS) h += chave("swNotif", "Notificação fixa", S.agitar ? "Sempre ligada enquanto o agitar estiver ativo" : "Lançar puxando a barra de notificações", S.notif || S.agitar)
     + '<p class="nota">Também dá para usar o bloco “Gasto” da Central de controle: toque no lápis e arraste-o para a área ativa.</p>';
   h += '<h3 class="h3">Moeda</h3><div class="chips">'+[["EUR","€ Euro"],["BRL","R$ Real"]].map(([k,n]) => '<button class="chip'+(S.moeda === k ? " on" : "")+'" data-moeda="'+k+'">'+n+'</button>').join("")+'</div>';
   h += '<h3 class="h3">Backup</h3><p class="nota">Seus dados já ficam no servidor. O arquivo é uma cópia extra, só do que é seu.</p>'
@@ -1006,9 +1018,10 @@ function telaMenu(){
   h += '<h3 class="h3">Atualizações</h3><div class="estado-nuvem">Versão instalada: <b>'+esc(S.versao || "?")+'</b>'
     + (a.disponivel ? '<br>Disponível: <b>'+esc(a.versao)+'</b>' : a.verificadoMs ? '<br>Verificado '+haQuanto(a.verificadoMs) : '')
     + (a.erro ? '<div class="erro" style="color:var(--muted)">'+esc(a.erro)+'</div>' : '') + '</div>'
+    + (IOS ? '<p class="nota">No iPhone, as versões novas chegam pelo SideStore: quando aparecer o aviso, abra o SideStore e toque em Atualizar.</p>' : '')
     + (a.podeInstalar ? '' : '<div class="contas-lista"><div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Permitir atualizar</b><small>Deixe o Finanças instalar as próprias atualizações</small></div><button class="btn mini" id="permInstalar">Permitir</button></div></div>')
     + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn" data-atualizar>Atualizar agora</button>' : '')+'</div>'
-    + chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico);
+    + (IOS ? '' : chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico));
   h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano atual: <b>'+(S.premium ? "Premium" : "Base")+'</b>.<br>Premium inclui contas que se repetem (mensal, a cada 15 dias, semanal, parceladas) e a visão de casal.</div>'
     + chave("swPremium", "Premium ativo", "Grátis por enquanto. Ao desativar, nada é apagado", S.premium);
   return h;
@@ -1711,6 +1724,13 @@ function folhaGuardar(id){
 $$("nav [data-aba]").forEach(b => b.onclick = () => ir(b.dataset.aba));
 $("#fab").onclick = () => { vibrar(); folhaNovo(false); };
 $("#miniAv").onclick = () => ir("perfil");
+/** Abre o lançamento vindo de fora (atalho, toque traseiro, financas://novo). */
+window.abrirNovo = function(){
+  if (RAPIDO || !S || !S.nuvem.logado) return false;
+  if (folhaAberta) fecharFolha(true);
+  folhaNovo(false);
+  return true;
+};
 
 carregar();
 extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes;

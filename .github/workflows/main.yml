@@ -50,3 +50,87 @@ jobs:
           envia -X POST "$URL/storage/v1/object/atualizacoes/versao.json" "${H[@]}" -H "x-upsert: true" \
             -H "Content-Type: application/json" -H "cache-control: max-age=30" --data-binary @versao.json
           echo "Publicada a versão 1.9 ($N)"
+
+  ios:
+    needs: apk
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar o projeto Xcode
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          cd ios && xcodegen generate
+      - name: Compilar o app iOS (sem assinatura; o SideStore assina ao instalar)
+        env:
+          N: ${{ github.run_number }}
+        run: |
+          cd ios
+          xcodebuild -project Financas.xcodeproj -scheme Financas -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            MARKETING_VERSION="1.9.$N" CURRENT_PROJECT_VERSION="$N" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -40
+          test -d build/Build/Products/Release-iphoneos/Financas.app
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Financas.app Payload/
+          zip -qry ../financas.ipa Payload
+          ls -la ../financas.ipa
+      - name: Anexar o .ipa à versão no GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "v1.9.${{ github.run_number }}" financas.ipa --clobber
+      - name: Publicar para o SideStore
+        env:
+          CHAVE: ${{ secrets.SUPABASE_SECRET }}
+          URL: https://yalkbujtjlrryttmccrw.supabase.co
+          N: ${{ github.run_number }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "Sem o segredo SUPABASE_SECRET: fonte do SideStore não publicada"; exit 0; fi
+          H=(-H "apikey: $CHAVE")
+          case "$CHAVE" in eyJ*) H+=(-H "Authorization: Bearer $CHAVE");; esac
+          envia() {
+            codigo=$(curl -sS -o resposta.txt -w "%{http_code}" "$@")
+            echo "HTTP $codigo: $(head -c 300 resposta.txt)"
+            [ "$codigo" -ge 200 ] && [ "$codigo" -lt 300 ]
+          }
+          PUB="$URL/storage/v1/object/public/atualizacoes"
+          envia -X POST "$URL/storage/v1/object/atualizacoes/financas-$N.ipa" "${H[@]}" -H "x-upsert: true" \
+            -H "Content-Type: application/octet-stream" --data-binary @financas.ipa
+          envia -X POST "$URL/storage/v1/object/atualizacoes/icone-ios.png" "${H[@]}" -H "x-upsert: true" \
+            -H "Content-Type: image/png" --data-binary @ios/Financas/Assets.xcassets/AppIcon.appiconset/icone.png
+          TAM=$(stat -f%z financas.ipa)
+          DATA=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > sidestore.json <<JSON
+          {
+            "name": "Finanças",
+            "identifier": "com.pessoal.financas.fonte",
+            "subtitle": "App de finanças pessoais e do casal",
+            "iconURL": "$PUB/icone-ios.png",
+            "tintColor": "1B7F5A",
+            "apps": [{
+              "name": "Finanças",
+              "bundleIdentifier": "com.pessoal.financas",
+              "developerName": "Finanças",
+              "subtitle": "Gastos em segundos, a dois",
+              "localizedDescription": "Lance gastos em segundos (também pela Siri), veja o mês, as contas e o que é do casal.",
+              "iconURL": "$PUB/icone-ios.png",
+              "tintColor": "1B7F5A",
+              "category": "utilities",
+              "versions": [{
+                "version": "1.9.$N",
+                "buildVersion": "$N",
+                "date": "$DATA",
+                "localizedDescription": "Versão 1.9.$N",
+                "downloadURL": "$PUB/financas-$N.ipa",
+                "size": $TAM,
+                "minOSVersion": "16.0"
+              }],
+              "appPermissions": { "entitlements": [], "privacy": {} }
+            }],
+            "news": []
+          }
+          JSON
+          python3 -m json.tool sidestore.json > /dev/null
+          envia -X POST "$URL/storage/v1/object/atualizacoes/sidestore.json" "${H[@]}" -H "x-upsert: true" \
+            -H "Content-Type: application/json" -H "cache-control: max-age=60" --data-binary @sidestore.json
+          echo "Fonte do SideStore: $PUB/sidestore.json"
