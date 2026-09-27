@@ -29,6 +29,20 @@ class MainActivity : Activity(), Hospedeiro {
         setContentView(web)
         Lembretes.agendar(this)
         Nuvem.aoMudar(recarregarTela)
+        tratarPedidoAtualizar(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        tratarPedidoAtualizar(intent)
+    }
+
+    /** Veio da notificação "Nova versão": instala já. */
+    private fun tratarPedidoAtualizar(i: Intent?) {
+        if (i?.getBooleanExtra("atualizar", false) != true) return
+        i.removeExtra("atualizar")
+        if (!Atualizador.podeInstalar(this)) { permitirInstalacao(); return }
+        Nuvem.executar { Atualizador.baixarEInstalar(this); js("window.recarregar && recarregar()") }
     }
 
     /** Quando a sincronização traz novidades, a tela recarrega sozinha. */
@@ -48,6 +62,7 @@ class MainActivity : Activity(), Hospedeiro {
         super.onResume()
         Nuvem.telaVisivel = true
         Nuvem.agendar(this, 0)
+        Atualizador.verificarEmSegundoPlano(this, telaAberta = true)
         if (Ajustes.agitarAtivo(this)) Agitar.sincronizar(this)
         else if (Ajustes.notifAtiva(this)) Notificacao.mostrar(this)
         if (::web.isInitialized) web.evaluateJavascript("window.recarregar && recarregar()", null)
@@ -109,6 +124,12 @@ class MainActivity : Activity(), Hospedeiro {
             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
             .putExtra(Settings.EXTRA_CHANNEL_ID, Notificacao.CANAL_POPUP)
         try { startActivity(i) } catch (e: Exception) { abrirAjustesApp() }
+    }
+
+    /** Liga "Instalar apps desconhecidos" para o próprio Finanças (necessário para se atualizar). */
+    override fun permitirInstalacao() = runOnUiThread {
+        try { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
+        catch (e: Exception) { abrirAjustesApp() }
     }
 
     override fun liberarBateria() = runOnUiThread {

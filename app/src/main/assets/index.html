@@ -279,6 +279,9 @@ body.entrada main{padding:48px 0 40px}
 .linha-campos .campo{margin:0;flex:1;min-width:0}
 .grupo{margin:14px 18px 6px;font-size:.8rem;color:var(--muted);font-weight:500}
 
+.banner-atu{display:flex;align-items:center;gap:12px;margin:0 18px 14px;padding:12px 14px;border-radius:18px;background:rgba(155,140,255,.14);color:var(--text);font-size:.9rem}
+.banner-atu span{flex:1}
+
 /* Modo rápido: só a folha de novo lançamento, por cima de qualquer app */
 body.rapido{background:transparent}
 body.rapido .topo, body.rapido main, body.rapido nav{display:none}
@@ -756,9 +759,16 @@ function cartoesMes(){
   return h;
 }
 function listaAtual(){ return vista === "lista" ? listaExtrato(doMesExtrato()) : cartoesMes(); }
+function bannerAtualizacao(){
+  const a = S.atualizacao || {};
+  if (a.etapa === "baixando") return '<div class="banner-atu"><span>Baixando a versão '+esc(a.versao)+'…</span></div>';
+  if (a.etapa === "instalando" || a.etapa === "confirmar") return '<div class="banner-atu"><span>Instalando a versão '+esc(a.versao)+'…</span></div>';
+  if (!a.disponivel) return "";
+  return '<div class="banner-atu"><span>Nova versão <b>'+esc(a.versao)+'</b> disponível.</span><button class="btn mini" data-atualizar>Atualizar</button></div>';
+}
 function telaFeed(){
   const atual = extr.ano === MES_ATUAL.ano && extr.mes === MES_ATUAL.mes;
-  let h = seletorModo() + carrossel();
+  let h = bannerAtualizacao() + seletorModo() + carrossel();
   h += atual ? heroiAtual() + storiesAtual() + insightAtual() : resumoMes();
   h += '<div class="controles"><input class="busca" id="busca" placeholder="Buscar por descrição ou categoria" value="'+esc(extr.busca)+'">'
     + '<div class="filtros">'+[["todas","Todas"],["d","Saídas"],["r","Entradas"]].map(([k,n]) => '<button class="chip'+(extr.tipo === k ? " on" : "")+'" data-tipo="'+k+'">'+n+'</button>').join("")
@@ -934,7 +944,14 @@ function telaMenu(){
   h += '<h3 class="h3">Moeda</h3><div class="chips">'+[["EUR","€ Euro"],["BRL","R$ Real"]].map(([k,n]) => '<button class="chip'+(S.moeda === k ? " on" : "")+'" data-moeda="'+k+'">'+n+'</button>').join("")+'</div>';
   h += '<h3 class="h3">Backup</h3><p class="nota">Seus dados já ficam no servidor. O arquivo é uma cópia extra, só do que é seu.</p>'
     + '<div class="linha-botoes"><button class="btn sec" id="exportar">Salvar backup</button><button class="btn sec" id="importar">Restaurar</button></div>';
-  h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano <b>Base</b> (gratuito). O Premium chega numa próxima versão.<br>Versão instalada: <b>'+esc(S.versao || "?")+'</b></div>';
+  const a = S.atualizacao || {};
+  h += '<h3 class="h3">Atualizações</h3><div class="estado-nuvem">Versão instalada: <b>'+esc(S.versao || "?")+'</b>'
+    + (a.disponivel ? '<br>Disponível: <b>'+esc(a.versao)+'</b>' : a.verificadoMs ? '<br>Verificado '+haQuanto(a.verificadoMs) : '')
+    + (a.erro ? '<div class="erro" style="color:var(--muted)">'+esc(a.erro)+'</div>' : '') + '</div>'
+    + (a.podeInstalar ? '' : '<div class="contas-lista"><div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Permitir atualizar</b><small>Deixe o Finanças instalar as próprias atualizações</small></div><button class="btn mini" id="permInstalar">Permitir</button></div></div>')
+    + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn" data-atualizar>Atualizar agora</button>' : '')+'</div>'
+    + chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico);
+  h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano <b>Base</b> (gratuito). O Premium chega numa próxima versão.</div>';
   return h;
 }
 
@@ -1010,6 +1027,13 @@ function ligarResto(){
   const tp = $("#testarPopup"); if (tp) tp.onclick = () => { ponte.testarPopup(); aviso("Popup enviado. Se não aparecer por cima, libere as notificações flutuantes."); };
   const ap = $("#ajPopup"); if (ap) ap.onclick = () => ponte.abrirAjustesPopup();
   const aa = $("#ajApp"); if (aa) aa.onclick = () => ponte.abrirAjustesApp();
+  $$("[data-atualizar]").forEach(b => b.onclick = () => {
+    if (!(S.atualizacao || {}).podeInstalar){ aviso("Primeiro permita que o Finanças instale atualizações"); ponte.permitirInstalacao(); return; }
+    pedir("instalarAtualizacao", () => ponte.instalarAtualizacao(), b, r => { if (!r.ok) aviso(r.msg); });
+  });
+  const pa = $("#procAtu"); if (pa) pa.onclick = () => pedir("procurarAtualizacao", () => ponte.procurarAtualizacao(), pa, r => aviso(r.nova ? "Versão nova encontrada" : r.msg));
+  const pi = $("#permInstalar"); if (pi) pi.onclick = () => ponte.permitirInstalacao();
+  const sa2 = $("#swAutoAtu"); if (sa2) sa2.onclick = () => { aplicar(ponte.definirAutoAtualizar(!(S.atualizacao || {}).automatico)); render(false); };
   const lb = $("#libBateria"); if (lb) lb.onclick = () => ponte.liberarBateria();
   const ia = $("#iniAuto"); if (ia) ia.onclick = () => ponte.abrirInicioAutomatico();
   const ex = $("#exportar"); if (ex) ex.onclick = () => ponte.exportar();

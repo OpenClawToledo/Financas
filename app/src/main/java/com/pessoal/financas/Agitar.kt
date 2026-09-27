@@ -71,6 +71,7 @@ object Agitar {
 class ReceptorVigia : android.content.BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (Ajustes.agitarAtivo(ctx)) Agitar.sincronizar(ctx)
+        Atualizador.verificarEmSegundoPlano(ctx)
     }
 }
 

@@ -67,7 +67,8 @@ class ReceptorLembrete : BroadcastReceiver() {
 /** Reagenda o lembrete depois que o celular reinicia. */
 class ReceptorBoot : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        // ao ligar o celular e logo depois de o app ser atualizado
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             Lembretes.agendar(ctx)
             if (Ajustes.agitarAtivo(ctx)) Agitar.sincronizar(ctx)
             else if (Ajustes.notifAtiva(ctx)) Notificacao.mostrar(ctx)

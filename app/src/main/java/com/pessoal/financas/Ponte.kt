@@ -93,6 +93,7 @@ object Estado {
             .put("agitar", Ajustes.agitarAtivo(ctx))
             .put("sens", Ajustes.sensibilidade(ctx))
             .put("bateriaLivre", Agitar.bateriaLivre(ctx))
+            .put("atualizacao", Atualizador.estado(ctx))
             .put("servidorProprio", Sessao.url(ctx) != Sessao.URL_PADRAO)
             .put("versao", try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "" } catch (e: Exception) { "" })
     }
@@ -111,6 +112,7 @@ interface Hospedeiro {
     fun importar()
     fun compartilhar(texto: String)
     fun liberarBateria()
+    fun permitirInstalacao()
     fun abrirInicioAutomatico()
     /** Executa um trecho de JavaScript na interface (usado para responder operações demoradas). */
     fun js(codigo: String)
@@ -277,6 +279,22 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
     @JavascriptInterface fun sairConta(): String { Nuvem.sair(ctx); return resp(true) }
     @JavascriptInterface fun compartilhar(texto: String) { host.compartilhar(texto) }
     @JavascriptInterface fun liberarBateria() { host.liberarBateria() }
+    @JavascriptInterface fun permitirInstalacao() { host.permitirInstalacao() }
+
+    // ---------- Atualizações ----------
+    @JavascriptInterface fun procurarAtualizacao() = emSegundoPlano("procurarAtualizacao") {
+        val nova = Atualizador.verificar(ctx)
+        val erro = Atualizador.estado(ctx).optString("erro")
+        JSONObject().put("ok", erro.isEmpty()).put("msg", if (erro.isNotEmpty()) erro else if (nova) "" else "Você já tem a versão mais recente")
+            .put("nova", nova)
+    }
+
+    @JavascriptInterface fun instalarAtualizacao() = emSegundoPlano("instalarAtualizacao") {
+        val e = Atualizador.baixarEInstalar(ctx)
+        JSONObject().put("ok", e == null).put("msg", e ?: "")
+    }
+
+    @JavascriptInterface fun definirAutoAtualizar(v: Boolean): String { Atualizador.definirAutomatico(ctx, v); return resp(true) }
     @JavascriptInterface fun abrirInicioAutomatico() { host.abrirInicioAutomatico() }
 
     /** Copia o script do banco (assets/esquema.sql) para quem quer usar o próprio Supabase. */

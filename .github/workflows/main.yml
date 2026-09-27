@@ -19,11 +19,26 @@ jobs:
           gradle-version: '8.7'
       - name: Compilar
         run: gradle assembleDebug --no-daemon
-      - name: Publicar APK
+      - name: Publicar no GitHub
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          TAG="v0.1.${{ github.run_number }}"
+          TAG="v1.9.${{ github.run_number }}"
           cp app/build/outputs/apk/debug/app-debug.apk financas.apk
           gh release create "$TAG" financas.apk --title "Finanças $TAG" --notes "Build automático"
+      - name: Publicar atualização automática
+        env:
+          CHAVE: ${{ secrets.SUPABASE_SECRET }}
+          URL: https://yalkbujtjlrryttmccrw.supabase.co
+          N: ${{ github.run_number }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "Sem o segredo SUPABASE_SECRET: atualização automática não publicada"; exit 0; fi
+          H=(-H "apikey: $CHAVE" -H "x-upsert: true")
+          case "$CHAVE" in eyJ*) H+=(-H "Authorization: Bearer $CHAVE");; esac
+          curl -sS --fail-with-body -X POST "$URL/storage/v1/object/atualizacoes/financas-$N.apk" "${H[@]}" \
+            -H "Content-Type: application/vnd.android.package-archive" --data-binary @financas.apk
+          printf '{"codigo": %s, "versao": "1.9 (%s)", "apk": "financas-%s.apk"}' "$N" "$N" "$N" > versao.json
+          curl -sS --fail-with-body -X POST "$URL/storage/v1/object/atualizacoes/versao.json" "${H[@]}" \
+            -H "Content-Type: application/json" -H "cache-control: max-age=30" --data-binary @versao.json
+          echo "Publicada a versão 1.9 ($N)"

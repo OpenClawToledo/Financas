@@ -64,6 +64,7 @@ class LancamentoRapidoActivity : Activity(), Hospedeiro {
     override fun ativarAgitar(ativo: Boolean) {}
     override fun compartilhar(texto: String) {}
     override fun liberarBateria() {}
+    override fun permitirInstalacao() {}
     override fun abrirInicioAutomatico() {}
     override fun js(codigo: String) = runOnUiThread { web.evaluateJavascript(codigo, null) }
     override fun abrirAjustesPopup() {}
