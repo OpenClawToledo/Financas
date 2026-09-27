@@ -213,6 +213,11 @@ nav .fab svg{width:30px;height:30px;stroke:#231A05;stroke-width:2.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 18px 10px}
 .chip{padding:8px 13px;border-radius:20px;background:var(--surface2);font-size:.88rem}
 .chip.on{background:var(--text);color:var(--ink)}
+.chips.rolar{flex-wrap:nowrap;overflow-x:auto;margin:0 0 10px;padding:0 18px;scrollbar-width:none;overscroll-behavior-x:contain}
+.chips.rolar::-webkit-scrollbar{display:none}
+.chips.rolar .chip{flex-shrink:0;white-space:nowrap}
+.chip.auto{border:1px dashed var(--muted)} .chip.auto.on{border-color:transparent}
+.dica-cat{margin:-4px 18px 10px;font-size:.8rem;color:var(--muted)}
 /* ---------- Roda de rolagem (categoria) ---------- */
 .roda{position:relative;height:132px;margin:0 18px 10px;border-radius:16px;background:var(--ink);border:1px solid var(--line);overflow:hidden}
 .roda::before{content:"";position:absolute;left:8px;right:8px;top:43px;height:44px;border-radius:12px;background:var(--surface2);border:1px solid var(--line);pointer-events:none}
@@ -1338,7 +1343,6 @@ function itensCategoria(receita, comAuto){
 /* ---------- Novo lançamento (também é o modo rápido) ---------- */
 function folhaNovo(receitaInicial, quandoInicial){
   let receita = !!receitaInicial, escolhida = "", sh = modo === "nos", quando = quandoInicial || "hoje";
-  let rd = null, rodaDe = null;
   const hj = new Date(), mesAtualStr = mesStr(MES_ATUAL.ano, MES_ATUAL.mes);
   if (quando === "mensal" || quando === "vezes") quando = "repetir";
   let data = isoData(Date.now()), primeira = isoData(Date.now()), freq = "m", comFim = false, vezes = 3, variavel = false, pagoJa = null;
@@ -1346,7 +1350,7 @@ function folhaNovo(receitaInicial, quandoInicial){
   abrirFolha('<div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
     + '<input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
     + '<div class="chips" id="quando"></div><div id="quandoBox"></div>'
-    + '<div id="chipsCat"></div><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
+    + '<div class="chips rolar" id="chipsCat"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
     + '<div id="nosBox"></div>'
     + '<button class="btn" id="salvarGasto">Adicionar</button>'
     + (evitar.length ? '<div class="rotulo">Ou registre uma troca</div><div class="chips">'+evitar.map(r => '<button class="chip verde" data-ev="'+r.id+'">Evitei '+esc(r.e)+' '+esc(r.n)+' · '+din(r.v)+'</button>').join("")+'</div>' : ''), f => {
@@ -1389,7 +1393,12 @@ function folhaNovo(receitaInicial, quandoInicial){
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
       inp.placeholder = receita ? "1090 salário" : quando === "repetir" ? "400 renda" : "5,50 café";
-      if (rodaDe !== receita){ rodaDe = receita; rd = roda($("#chipsCat", f), itensCategoria(receita, true), escolhida, v => { escolhida = v; }); }
+      $("#chipsCat", f).innerHTML = itensCategoria(receita, true).map(it => '<button class="chip'+(it.v ? "" : " auto")+(it.v === escolhida ? " on" : "")+'" data-c="'+esc(it.v)+'">'+it.t+'</button>').join("");
+      $$("#chipsCat .chip", f).forEach(c => c.onclick = () => {
+        escolhida = escolhida === c.dataset.c ? "" : c.dataset.c;   // tocar de novo volta ao automático
+        $$("#chipsCat .chip", f).forEach(x => x.classList.toggle("on", x.dataset.c === escolhida));
+        vibrar(); previa();
+      });
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
       montarQuando();
@@ -1398,7 +1407,12 @@ function folhaNovo(receitaInicial, quandoInicial){
     const previa = () => {
       const d = valorDigitado();
       if (d && d.r && !receita){ receita = true; escolhida = ""; montar(); return; }
-      if (rd) rd.texto(0, d ? "✨ Automática: " + cat(d.c)[0] + " " + esc(d.c) : "✨ Automática");
+      const auto = $('#chipsCat .chip[data-c=""]', f);
+      if (auto) auto.innerHTML = !d ? "✨ Automática" : (d.e ? "✍️ " : "✨ ") + cat(d.c)[0] + " " + esc(d.c);
+      const dica = $(".dica-cat", f);
+      if (dica) dica.textContent = !d ? "Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”"
+        : escolhida ? "“"+d.d+"” em "+escolhida+" (escolhida)"
+        : "“"+d.d+"” em "+d.c+(d.e ? " (escrita por você)" : " (identificada)");
       $("#prevEq", f).innerHTML = d ? (receita ? '<div class="eq"><span class="pos">Entrada de '+din(d.v)+'</span></div>' : equivalencia(d.v)) : "";
       rotuloBotao();
     };

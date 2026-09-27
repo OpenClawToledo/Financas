@@ -17,7 +17,8 @@ data class Gasto(
     val valor: Double,
     val descricao: String,
     val categoria: String,
-    val receita: Boolean = false
+    val receita: Boolean = false,
+    val categoriaEscrita: Boolean = false   // o usuário escreveu a categoria no texto
 )
 
 data class Lanc(val id: String, val q: Long, val v: Double, val d: String, val c: String, val receita: Boolean, val sh: Boolean, val dono: String, val cf: String)
@@ -107,6 +108,40 @@ object Categorias {
 
     private fun normalizar(s: String): String =
         Normalizer.normalize(" " + s.lowercase() + " ", Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+
+    // Nomes (e apelidos) que podem ser escritos no fim da descrição para escolher a categoria
+    private val apelidos = mapOf(
+        "Compras" to listOf("compras", "compra"), "Mercado" to listOf("mercado"),
+        "Alimentação" to listOf("alimentacao", "comida"), "Hábitos" to listOf("habitos", "habito"),
+        "Transporte" to listOf("transporte", "transportes"), "Moradia" to listOf("moradia", "casa"),
+        "Saúde" to listOf("saude"), "Lazer" to listOf("lazer"), "Educação" to listOf("educacao", "estudo", "estudos"),
+        FIXAS to listOf("contas fixas", "conta fixa"), OUTROS to listOf("outros", "outro"),
+        SALARIO to listOf("salario"), "Reembolso" to listOf("reembolso"),
+        "Rendimentos" to listOf("rendimentos", "rendimento"), EXTRA to listOf("extra")
+    )
+
+    /**
+     * Categoria escrita pelo usuário: "#saude" em qualquer lugar ou o nome no fim ("12 corte de cabelo saúde").
+     * Devolve a categoria e a descrição sem o nome, ou null.
+     */
+    fun escrita(descricao: String, receita: Boolean): Pair<String, String>? {
+        val validas = if (receita) receitas else todas
+        val palavras = descricao.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        fun achar(trecho: String): String? {
+            val n = normalizar(trecho.removePrefix("#")).trim()
+            return apelidos.entries.firstOrNull { (c, a) -> c in validas && n in a }?.key
+        }
+        palavras.forEachIndexed { i, w ->
+            if (w.startsWith("#") && w.length > 1) achar(w)?.let { c ->
+                return c to palavras.filterIndexed { k, _ -> k != i }.joinToString(" ")
+            }
+        }
+        for (n in 2 downTo 1) {
+            if (palavras.size <= n) continue   // precisa sobrar descrição
+            achar(palavras.takeLast(n).joinToString(" "))?.let { return it to palavras.dropLast(n).joinToString(" ") }
+        }
+        return null
+    }
 
     fun detectar(descricao: String, receita: Boolean = false): String {
         val d = normalizar(descricao)
@@ -435,6 +470,7 @@ object Interpretador {
         if (valor <= 0) return null
         val desc = t.removeRange(m.range).replace(simbolos, "").replace(Regex("\\s+"), " ").trim()
             .ifEmpty { if (receita) "Entrada" else "Sem descrição" }
+        Categorias.escrita(desc, receita)?.let { (cat, resto) -> return Gasto(System.currentTimeMillis(), valor, resto, cat, receita, true) }
         return Gasto(System.currentTimeMillis(), valor, desc, Categorias.detectar(desc, receita), receita)
     }
 }

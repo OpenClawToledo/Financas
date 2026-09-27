@@ -161,7 +161,8 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
 
     @JavascriptInterface fun detectar(texto: String, receita: Boolean): String {
         val g = Interpretador.interpretar(texto, receita) ?: return ""
-        return JSONObject().put("c", g.categoria).put("r", g.receita).put("v", g.valor).toString()
+        return JSONObject().put("c", g.categoria).put("r", g.receita).put("v", g.valor)
+            .put("e", g.categoriaEscrita).put("d", g.descricao).toString()
     }
 
     @JavascriptInterface fun editarGasto(id: String, q: String, valor: String, desc: String, cat: String, receita: Boolean, sh: Boolean): String {
