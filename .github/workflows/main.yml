@@ -34,11 +34,19 @@ jobs:
           N: ${{ github.run_number }}
         run: |
           if [ -z "$CHAVE" ]; then echo "Sem o segredo SUPABASE_SECRET: atualização automática não publicada"; exit 0; fi
-          H=(-H "apikey: $CHAVE" -H "x-upsert: true")
+          H=(-H "apikey: $CHAVE")
           case "$CHAVE" in eyJ*) H+=(-H "Authorization: Bearer $CHAVE");; esac
-          curl -sS --fail-with-body -X POST "$URL/storage/v1/object/atualizacoes/financas-$N.apk" "${H[@]}" \
+          envia() {  # envia e mostra a resposta; falha com mensagem clara
+            codigo=$(curl -sS -o resposta.txt -w "%{http_code}" "$@")
+            echo "HTTP $codigo: $(head -c 400 resposta.txt)"
+            [ "$codigo" -ge 200 ] && [ "$codigo" -lt 300 ]
+          }
+          # cria a pasta pública "atualizacoes" se ainda não existir (ignora "já existe")
+          envia -X POST "$URL/storage/v1/bucket" "${H[@]}" -H "Content-Type: application/json" \
+            --data '{"id":"atualizacoes","name":"atualizacoes","public":true}' || echo "(pasta já existe ou não pôde ser criada; seguindo)"
+          envia -X POST "$URL/storage/v1/object/atualizacoes/financas-$N.apk" "${H[@]}" -H "x-upsert: true" \
             -H "Content-Type: application/vnd.android.package-archive" --data-binary @financas.apk
           printf '{"codigo": %s, "versao": "1.9 (%s)", "apk": "financas-%s.apk"}' "$N" "$N" "$N" > versao.json
-          curl -sS --fail-with-body -X POST "$URL/storage/v1/object/atualizacoes/versao.json" "${H[@]}" \
+          envia -X POST "$URL/storage/v1/object/atualizacoes/versao.json" "${H[@]}" -H "x-upsert: true" \
             -H "Content-Type: application/json" -H "cache-control: max-age=30" --data-binary @versao.json
           echo "Publicada a versão 1.9 ($N)"
