@@ -10,8 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extrair projeto
-        run: unzip -o projeto.zip -d .
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
