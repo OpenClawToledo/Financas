@@ -213,6 +213,15 @@ nav .fab svg{width:30px;height:30px;stroke:#231A05;stroke-width:2.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 18px 10px}
 .chip{padding:8px 13px;border-radius:20px;background:var(--surface2);font-size:.88rem}
 .chip.on{background:var(--text);color:var(--ink)}
+/* ---------- Roda de rolagem (categoria) ---------- */
+.roda{position:relative;height:132px;margin:0 18px 10px;border-radius:16px;background:var(--ink);border:1px solid var(--line);overflow:hidden}
+.roda::before{content:"";position:absolute;left:8px;right:8px;top:43px;height:44px;border-radius:12px;background:var(--surface2);border:1px solid var(--line);pointer-events:none}
+.roda-lista{position:relative;height:100%;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(transparent,#000 34%,#000 66%,transparent);mask-image:linear-gradient(transparent,#000 34%,#000 66%,transparent)}
+.roda-lista::-webkit-scrollbar{display:none}
+.roda-esp{height:44px}
+.roda-it{height:44px;display:flex;align-items:center;justify-content:center;gap:6px;scroll-snap-align:center;font-size:1rem;color:var(--muted);transition:color .15s,transform .15s;white-space:nowrap}
+.roda-it.on{color:var(--text);font-weight:600;transform:scale(1.07)}
 .chip.verde{background:rgba(76,214,160,.16);color:var(--ok)}
 .seg{display:flex;margin:0 18px 14px;padding:4px;border-radius:16px;background:var(--ink)}
 .seg button{flex:1;padding:10px;border-radius:12px;color:var(--muted);font-weight:500}
@@ -1301,15 +1310,35 @@ function evitei(id){
   render(false); verificarConquistas();
 }
 
-function chipsCategorias(receita, marcada, comAuto){
+
+/* Roda de rolagem: itens [{v, t}]; aoMudar(v) quando o item do centro muda. */
+function roda(el, itens, marcada, aoMudar){
+  const H = 44;
+  el.classList.add("roda");
+  el.innerHTML = '<div class="roda-lista"><div class="roda-esp"></div>'
+    + itens.map((it, i) => '<div class="roda-it" data-i="'+i+'">'+it.t+'</div>').join("") + '<div class="roda-esp"></div></div>';
+  const L = el.firstChild, els = $$(".roda-it", el);
+  let atual = Math.max(0, itens.findIndex(it => it.v === marcada));
+  const marcar = i => els.forEach((d, k) => d.classList.toggle("on", k === i));
+  const posicionar = () => { L.scrollTop = atual * H; };
+  marcar(atual); posicionar(); requestAnimationFrame(posicionar);
+  L.onscroll = () => {
+    const i = Math.min(itens.length - 1, Math.max(0, Math.round(L.scrollTop / H)));
+    if (i === atual) return;
+    atual = i; marcar(i); vibrar(); aoMudar(itens[i].v);
+  };
+  els.forEach(d => d.onclick = () => L.scrollTo({top: +d.dataset.i * H, behavior: "smooth"}));
+  return { texto: (i, t) => { if (els[i]) els[i].innerHTML = t; } };
+}
+function itensCategoria(receita, comAuto){
   const lista = receita ? S.categoriasReceita : S.categorias;
-  return (comAuto ? '<button class="chip'+(marcada ? "" : " on")+'" data-c="">Automática</button>' : '')
-    + lista.map(c => '<button class="chip'+(c === marcada ? " on" : "")+'" data-c="'+esc(c)+'">'+cat(c)[0]+' '+esc(c)+'</button>').join("");
+  return (comAuto ? [{v: "", t: "✨ Automática"}] : []).concat(lista.map(c => ({v: c, t: cat(c)[0] + " " + esc(c)})));
 }
 
 /* ---------- Novo lançamento (também é o modo rápido) ---------- */
 function folhaNovo(receitaInicial, quandoInicial){
   let receita = !!receitaInicial, escolhida = "", sh = modo === "nos", quando = quandoInicial || "hoje";
+  let rd = null, rodaDe = null;
   const hj = new Date(), mesAtualStr = mesStr(MES_ATUAL.ano, MES_ATUAL.mes);
   if (quando === "mensal" || quando === "vezes") quando = "repetir";
   let data = isoData(Date.now()), primeira = isoData(Date.now()), freq = "m", comFim = false, vezes = 3, variavel = false, pagoJa = null;
@@ -1317,7 +1346,7 @@ function folhaNovo(receitaInicial, quandoInicial){
   abrirFolha('<div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
     + '<input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
     + '<div class="chips" id="quando"></div><div id="quandoBox"></div>'
-    + '<div class="chips" id="chipsCat"></div><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
+    + '<div id="chipsCat"></div><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
     + '<div id="nosBox"></div>'
     + '<button class="btn" id="salvarGasto">Adicionar</button>'
     + (evitar.length ? '<div class="rotulo">Ou registre uma troca</div><div class="chips">'+evitar.map(r => '<button class="chip verde" data-ev="'+r.id+'">Evitei '+esc(r.e)+' '+esc(r.n)+' · '+din(r.v)+'</button>').join("")+'</div>' : ''), f => {
@@ -1360,8 +1389,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
       inp.placeholder = receita ? "1090 salário" : quando === "repetir" ? "400 renda" : "5,50 café";
-      $("#chipsCat", f).innerHTML = chipsCategorias(receita, escolhida, true);
-      $$("#chipsCat .chip", f).forEach(c => c.onclick = () => { escolhida = c.dataset.c; montar(); });
+      if (rodaDe !== receita){ rodaDe = receita; rd = roda($("#chipsCat", f), itensCategoria(receita, true), escolhida, v => { escolhida = v; }); }
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
       montarQuando();
@@ -1370,8 +1398,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     const previa = () => {
       const d = valorDigitado();
       if (d && d.r && !receita){ receita = true; escolhida = ""; montar(); return; }
-      const auto = $('#chipsCat .chip[data-c=""]', f);
-      if (auto) auto.textContent = d ? "Automática: " + cat(d.c)[0] + " " + d.c : "Automática";
+      if (rd) rd.texto(0, d ? "✨ Automática: " + cat(d.c)[0] + " " + esc(d.c) : "✨ Automática");
       $("#prevEq", f).innerHTML = d ? (receita ? '<div class="eq"><span class="pos">Entrada de '+din(d.v)+'</span></div>' : equivalencia(d.v)) : "";
       rotuloBotao();
     };
@@ -1442,11 +1469,11 @@ function folhaEditar(id){
     + '<label class="campo"><span>Valor</span><input id="eV" inputmode="decimal" value="'+String(g.v).replace(".", ",")+'"></label>'
     + '<label class="campo"><span>Descrição</span><input id="eD" value="'+esc(g.d)+'"></label>'
     + '<label class="campo"><span>Data</span><input id="eDt" type="date" value="'+isoData(g.q)+'"></label>'
-    + '<div class="rotulo">Categoria</div><div class="chips" id="eC"></div><div id="nosBox"></div><button class="btn" id="eSalvar">Salvar alterações</button>', f => {
+    + '<div class="rotulo">Categoria</div><div id="eC"></div><div id="nosBox"></div><button class="btn" id="eSalvar">Salvar alterações</button>', f => {
+    let rodaDe = null;
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
-      $("#eC", f).innerHTML = chipsCategorias(receita, escolhida, false);
-      $$("#eC .chip", f).forEach(c => c.onclick = () => { escolhida = c.dataset.c; montar(); });
+      if (rodaDe !== receita){ rodaDe = receita; roda($("#eC", f), itensCategoria(receita, false), escolhida, v => { escolhida = v; }); }
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
     };
@@ -1488,8 +1515,10 @@ function folhaComentarios(id){
 }
 function folhaCategoria(id){
   const g = achar(id);
-  abrirFolha('<h3>Categoria</h3><div class="chips">'+chipsCategorias(g.t === "r", g.c, false)+'</div>', f => {
-    $$(".chip", f).forEach(c => c.onclick = () => { aplicar(ponte.mudarCategoria(id, c.dataset.c)); vibrar(); fecharFolha(); render(false); });
+  let escolhida = g.c;
+  abrirFolha('<h3>Categoria</h3><div id="rCat"></div><button class="btn" id="rOk">Confirmar</button>', f => {
+    roda($("#rCat", f), itensCategoria(g.t === "r", false), g.c, v => { escolhida = v; });
+    $("#rOk", f).onclick = () => { if (escolhida !== g.c) aplicar(ponte.mudarCategoria(id, escolhida)); vibrar(); fecharFolha(); render(false); };
   });
 }
 
