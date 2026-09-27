@@ -336,9 +336,11 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* ---------- Estado e visões (Eu / Nós / Total) ---------- */
 const meu = x => x.dono === S.eu.id;
-const temCasal = () => !!S.parceiro;
+const casalExiste = () => !!S.parceiro;
+/** A visão de casal é Premium: sem ele, os dados do parceiro ficam guardados, só não aparecem. */
+const temCasal = () => !!S.parceiro && !!S.premium;
 function visivel(x){
-  if (!temCasal()) return true;
+  if (!temCasal()) return meu(x);
   if (modo === "eu") return meu(x);
   if (modo === "nos") return !!x.sh;
   return true;
@@ -353,7 +355,8 @@ function preparar(){
   S.desp = S.vis.filter(g => g.t !== "r");
   S.rec = S.vis.filter(g => g.t === "r");
   S.contasVis = S.contas.filter(visivel);
-  S.contasMes = S.contasVis.filter(c => parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes));
+  S.contasMes = S.contasVis.filter(c => c.ocs && c.ocs.length);
+  S.metasVis = S.metas.filter(m => temCasal() || meu(m));
   S.trocasVis = (!temCasal() || modo !== "nos") ? S.trocas : [];
   if (!temCasal()) modo = "total";
 }
@@ -397,16 +400,55 @@ function parcelaEm(c, a, m){
   const i = a*12 + m - i0;
   return i >= 0 && (!c.vezes || i < c.vezes) ? i + 1 : null;
 }
+const FREQ = {m:"todo mês", q:"a cada 15 dias", s:"toda semana"};
+/** Datas em que a conta vence no mês (a = ano, m = mês 0-11). */
+function ocorrencias(c, a, m){
+  const fim = new Date(a, m+1, 0);
+  if (!c.freq || c.freq === "m"){
+    const n = parcelaEm(c, a, m);
+    return n ? [{d:new Date(a, m, Math.min(c.dia, fim.getDate())), n, chave:mesStr(a, m)}] : [];
+  }
+  const passo = c.freq === "q" ? 14 : 7;
+  const [y, mo, dd] = (c.d0 || "").split("-").map(Number);
+  if (!y) return [];
+  const ini = new Date(y, mo-1, dd), dia = 86400000;
+  let k = Math.max(0, Math.ceil(Math.round((new Date(a, m, 1) - ini) / dia) / passo));
+  const lista = [];
+  for (;;){
+    if (c.vezes && k >= c.vezes) break;
+    const d = new Date(y, mo-1, dd + k*passo);
+    if (d > fim) break;
+    lista.push({d, n:k+1, chave:isoData(d.getTime())});
+    k++;
+  }
+  return lista;
+}
+/** Quantas vezes a conta ainda vence depois do mês atual (só contas com fim). */
+function restantesDepois(c){
+  if (!c.vezes) return 0;
+  const fimMes = new Date(MES_ATUAL.ano, MES_ATUAL.mes + 1, 0);
+  if (!c.freq || c.freq === "m"){
+    const i0 = idxMes(c.ini); if (i0 === null) return 0;
+    return Math.max(0, (i0 + c.vezes - 1) - Math.max(i0, MES_ATUAL.ano*12 + MES_ATUAL.mes + 1) + 1);
+  }
+  const [y, mo, dd] = (c.d0 || "").split("-").map(Number); if (!y) return 0;
+  const passo = c.freq === "q" ? 14 : 7;
+  const dias = Math.round((fimMes - new Date(y, mo-1, dd)) / 86400000);
+  const jaPassaram = dias < 0 ? 0 : Math.floor(dias / passo) + 1;
+  return Math.max(0, c.vezes - jaPassaram);
+}
 function descConta(c){
   const p = c.ini ? c.ini.split("-").map(Number) : [0, 0];
   if (c.vezes === 1) return "única, "+c.dia+" de "+MESES_L[p[1]-1]+(p[0] !== MES_ATUAL.ano ? " de "+p[0] : "");
+  const f = FREQ[c.freq || "m"];
   if (c.vezes > 1){
-    const n = parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes);
-    if (n) return "parcela "+n+" de "+c.vezes+", dia "+c.dia;
-    return idxMes(c.ini) > MES_ATUAL.ano*12 + MES_ATUAL.mes ? c.vezes+"× a partir de "+MESES[p[1]-1]+"/"+String(p[0]).slice(2) : "encerrada ("+c.vezes+"×)";
+    const oc = (c.ocs || []).find(o => !o.paga) || (c.ocs || [])[0];
+    if (oc) return f+", "+oc.n+" de "+c.vezes;
+    return restantesDepois(c) > 0 ? f+", "+c.vezes+"× a partir de "+MESES[p[1]-1]+"/"+String(p[0]).slice(2) : "encerrada ("+c.vezes+"×)";
   }
-  return "todo mês, dia "+c.dia+(c.var ? " · valor varia" : "");
+  return f+(c.freq === "m" || !c.freq ? ", dia "+c.dia : "")+(c.var ? " · valor varia" : "");
 }
+
 const isoData = ms => { const d = new Date(ms); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 
 /* ---------- Equivalência (referências escolhidas pela pessoa) ---------- */
@@ -430,16 +472,13 @@ function numerosMes(){
   const variavel = desp.filter(g => g.c !== "Contas fixas").reduce((a,g) => a+g.v, 0);
   const restante = variavel / S.hoje * (S.diasNoMes - S.hoje);
   const pend = S.contasMes.filter(c => !c.paga);
-  const compMes = pend.filter(c => !c.e).reduce((a,c) => a+c.v, 0);
+  const abertas = c => (c.ocs || []).filter(o => !o.paga).length;
+  const compMes = S.contasMes.filter(c => !c.e).reduce((a,c) => a + abertas(c)*c.v, 0);
   // dívidas com fim (parcelas e datas únicas): o que falta depois deste mês
   const agoraIdx = ano*12 + mes;
-  const compFuturo = S.contasVis.filter(c => !c.e && c.vezes > 0).reduce((a,c) => {
-    const i0 = idxMes(c.ini); if (i0 === null) return a;
-    const ultimo = i0 + c.vezes - 1, primeiro = Math.max(i0, agoraIdx + 1);
-    return a + Math.max(0, ultimo - primeiro + 1) * c.v;
-  }, 0);
+  const compFuturo = S.contasVis.filter(c => !c.e && c.vezes > 0).reduce((a,c) => a + restantesDepois(c) * c.v, 0);
   const comprometido = compMes + compFuturo;
-  const aReceber = pend.filter(c => c.e).reduce((a,c) => a+c.v, 0);
+  const aReceber = S.contasMes.filter(c => c.e).reduce((a,c) => a + (c.ocs || []).filter(o => !o.paga).length*c.v, 0);
   const livre = entrou - saiu;
   const ant = new Date(ano, mes-1, 1);
   const limiteAnt = new Date(ant.getFullYear(), ant.getMonth(), Math.min(S.hoje, new Date(ano, mes, 0).getDate()) + 1).getTime();
@@ -480,7 +519,7 @@ const CONQUISTAS = [
   {id:"missao", i:"🏆", n:"Missão cumprida", d:"Concluiu ou quitou um destino", ok:() => S.metas.some(m => m.atual >= m.alvo)},
   {id:"ref", i:"⚖️", n:"Minha régua", d:"Criou uma referência própria", ok:() => S.refs.length >= 2},
   {id:"papo", i:"💬", n:"Conversa", d:"Fez o primeiro comentário", ok:() => meusComentarios() >= 1},
-  {id:"casal", i:"💞", n:"Dupla", d:"Entrou em casal no app", ok:() => temCasal()}
+  {id:"casal", i:"💞", n:"Dupla", d:"Entrou em casal no app", ok:() => casalExiste()}
 ];
 function nivel(){
   const desbloq = CONQUISTAS.filter(c => c.ok()).length;
@@ -810,14 +849,15 @@ function projetadas(a, m){
   const atual = a === MES_ATUAL.ano && m === MES_ATUAL.mes;
   const futuro = inicioMes(a, m) > inicioMes(MES_ATUAL.ano, MES_ATUAL.mes);
   if (!atual && !futuro) return [];
-  const ult = new Date(a, m+1, 0).getDate();
-  return S.contasVis.filter(c => parcelaEm(c, a, m) && (futuro || !c.paga)).map(c => {
-    const n = parcelaEm(c, a, m);
-    return {prev:true, id:c.id, q:new Date(a, m, Math.min(c.dia, ult), 12).getTime(), v:c.v,
-      d:c.n + (c.vezes > 1 ? " ("+n+"/"+c.vezes+")" : "") + (c.var ? " ≈" : ""),
+  const lista = [];
+  S.contasVis.forEach(c => {
+    const pagas = atual ? new Set((c.ocs || []).filter(o => o.paga).map(o => o.chave)) : new Set();
+    ocorrencias(c, a, m).filter(o => !pagas.has(o.chave)).forEach(o => lista.push({prev:true, id:c.id, chave:o.chave, q:new Date(o.d.getFullYear(), o.d.getMonth(), o.d.getDate(), 12).getTime(), v:c.v,
+      d:c.n + (c.vezes > 1 ? " ("+o.n+"/"+c.vezes+")" : "") + (c.var ? " ≈" : ""),
       c:c.c || (c.e ? (/sal[aá]rio|ordenado|vencimento/i.test(c.n) ? "Salário" : "Extra") : "Contas fixas"),
-      t:c.e ? "r" : "d", dono:c.dono, sh:c.sh};
+      t:c.e ? "r" : "d", dono:c.dono, sh:c.sh}));
   });
+  return lista;
 }
 
 const doMesExtrato = () => S.vis.filter(g => noMes(g.q, extr.ano, extr.mes)).concat(projetadas(extr.ano, extr.mes));
@@ -862,8 +902,8 @@ function telaTrocas(){
   h += '<button class="btn sec" data-nova-ref="evitar">Adicionar algo a evitar</button>';
 
   h += '<h3 class="h3">Destinos</h3>';
-  if (!S.metas.length) h += '<p class="nota">Crie um destino para onde o dinheiro poupado vai: um curso, uma viagem ou um imprevisto que está pagando aos poucos.</p>';
-  S.metas.forEach(m => {
+  if (!S.metasVis.length) h += '<p class="nota">Crie um destino para onde o dinheiro poupado vai: um curso, uma viagem ou um imprevisto que está pagando aos poucos.</p>';
+  S.metasVis.forEach(m => {
     const f = Math.min(1, m.atual / m.alvo);
     const falta = Math.max(0, m.alvo - m.atual);
     const amort = m.tipo === "a";
@@ -888,6 +928,10 @@ function chave(id, titulo, sub, ligado){
 function secaoCasal(){
   const nv = S.nuvem;
   let h = '<h3 class="h3">Casal</h3>';
+  if (!S.premium){
+    return h + '<div class="estado-nuvem">A visão de casal é <b>Premium</b>.'+(casalExiste() ? ' Vocês continuam ligados e tudo o que foi partilhado fica guardado; ative o Premium para voltar a ver.' : '')+'</div>'
+      + '<button class="btn sec" data-premium>Conhecer o Premium</button>';
+  }
   if (temCasal()){
     h += '<div class="estado-nuvem">'+bolinha(S.eu.id)+' '+bolinha(S.parceiro.id)+' &nbsp;Em casal com <b>'+esc(S.parceiro.nome)+'</b>.<br>Vocês veem só o que for marcado como “Nós”.</div>'
       + '<button class="btn sec" id="sairCasal">Sair do casal</button>';
@@ -951,7 +995,8 @@ function telaMenu(){
     + (a.podeInstalar ? '' : '<div class="contas-lista"><div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Permitir atualizar</b><small>Deixe o Finanças instalar as próprias atualizações</small></div><button class="btn mini" id="permInstalar">Permitir</button></div></div>')
     + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn" data-atualizar>Atualizar agora</button>' : '')+'</div>'
     + chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico);
-  h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano <b>Base</b> (gratuito). O Premium chega numa próxima versão.</div>';
+  h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano atual: <b>'+(S.premium ? "Premium" : "Base")+'</b>.<br>Premium inclui contas que se repetem (mensal, a cada 15 dias, semanal, parceladas) e a visão de casal.</div>'
+    + chave("swPremium", "Premium ativo", "Grátis por enquanto. Ao desativar, nada é apagado", S.premium);
   return h;
 }
 
@@ -1034,6 +1079,8 @@ function ligarResto(){
   const pa = $("#procAtu"); if (pa) pa.onclick = () => pedir("procurarAtualizacao", () => ponte.procurarAtualizacao(), pa, r => aviso(r.nova ? "Versão nova encontrada" : r.msg));
   const pi = $("#permInstalar"); if (pi) pi.onclick = () => ponte.permitirInstalacao();
   const sa2 = $("#swAutoAtu"); if (sa2) sa2.onclick = () => { aplicar(ponte.definirAutoAtualizar(!(S.atualizacao || {}).automatico)); render(false); };
+  const sp2 = $("#swPremium"); if (sp2) sp2.onclick = () => alternarPremium(!S.premium);
+  $$("[data-premium]").forEach(b => b.onclick = () => folhaPremium(""));
   const lb = $("#libBateria"); if (lb) lb.onclick = () => ponte.liberarBateria();
   const ia = $("#iniAuto"); if (ia) ia.onclick = () => ponte.abrirInicioAutomatico();
   const ex = $("#exportar"); if (ex) ex.onclick = () => ponte.exportar();
@@ -1062,6 +1109,7 @@ function confirmar(titulo, texto, rotulo, acao){
   });
 }
 function chaveNos(ligado){
+  if (!S.premium) return "";
   if (!temCasal() && !S.nuvem.casal) return "";
   return chave("swNos", "Compartilhar com "+(S.parceiro ? esc(S.parceiro.nome) : "o casal")+" (Nós)", "Aparece para os dois e entra no acerto de contas", ligado);
 }
@@ -1263,7 +1311,8 @@ function chipsCategorias(receita, marcada, comAuto){
 function folhaNovo(receitaInicial, quandoInicial){
   let receita = !!receitaInicial, escolhida = "", sh = modo === "nos", quando = quandoInicial || "hoje";
   const hj = new Date(), mesAtualStr = mesStr(MES_ATUAL.ano, MES_ATUAL.mes);
-  let data = isoData(Date.now()), dia = hj.getDate(), vezes = 3, inicio = mesAtualStr, variavel = false, pagoJa = null;
+  if (quando === "mensal" || quando === "vezes") quando = "repetir";
+  let data = isoData(Date.now()), primeira = isoData(Date.now()), freq = "m", comFim = false, vezes = 3, variavel = false, pagoJa = null;
   const evitar = S.refs.filter(r => r.evitar);
   abrirFolha('<div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
     + '<input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
@@ -1275,39 +1324,42 @@ function folhaNovo(receitaInicial, quandoInicial){
     const inp = $("#txtGasto", f);
     const valorDigitado = () => { const r = inp.value.trim() ? ponte.detectar(inp.value, receita) : ""; return r ? JSON.parse(r) : null; };
     const pagoAtual = () => pagoJa !== null ? pagoJa : false;   // começa como não paga: entra no comprometido até marcar
+    const primeiraJaPassou = () => { const [a, m, d] = primeira.split("-").map(Number); return new Date(a, m-1, d) <= hj && a === MES_ATUAL.ano && m-1 === MES_ATUAL.mes; };
     const dataFutura = () => { const [a, m, d] = data.split("-").map(Number); return new Date(a, m-1, d) > new Date(hj.getFullYear(), hj.getMonth(), hj.getDate()); };
     const rotuloBotao = () => {
-      $("#salvarGasto", f).textContent = quando === "hoje" ? "Adicionar" : quando === "data" ? (dataFutura() ? "Programar" : "Adicionar") : quando === "mensal" ? "Criar conta mensal" : "Criar parcelas";
+      $("#salvarGasto", f).textContent = quando === "hoje" ? "Adicionar" : quando === "data" ? (dataFutura() ? "Programar" : "Adicionar") : (comFim ? "Criar "+vezes+" parcelas" : "Criar conta que se repete");
       const nota = $("#qNota", f); const d = valorDigitado();
       if (nota && quando === "data") nota.textContent = dataFutura() ? "Data futura: fica programada e entra no “comprometido” desse mês." : "Fica registrado com essa data.";
-      if (nota && quando === "vezes") nota.textContent = d ? vezes+" × "+din(d.v)+" = "+din(vezes*d.v)+" no total" : "Escreva o valor de cada parcela.";
+      if (nota && quando === "repetir") nota.textContent = comFim ? (d ? vezes+" × "+din(d.v)+" = "+din(vezes*d.v)+" no total" : "Escreva o valor de cada vez.") : "Repete "+FREQ[freq]+" até você excluir.";
     };
     const montarQuando = () => {
-      $("#quando", f).innerHTML = [["hoje","Hoje"],["data","Outra data"],["mensal","Todo mês"],["vezes","Parcelado"]]
+      $("#quando", f).innerHTML = [["hoje","Hoje"],["data","Outra data"],["repetir", S.premium ? "Repetir" : "Repetir 🔒"]]
         .map(([k,n]) => '<button class="chip'+(quando === k ? " on" : "")+'" data-q="'+k+'">'+n+'</button>').join("");
-      $$("#quando .chip", f).forEach(b => b.onclick = () => { quando = b.dataset.q; montarQuando(); });
+      $$("#quando .chip", f).forEach(bt => bt.onclick = () => {
+        if (bt.dataset.q === "repetir" && !S.premium){ folhaPremium("Repetir contas (mensal, a cada 15 dias, semanal e parceladas) é um recurso Premium."); return; }
+        quando = bt.dataset.q; montarQuando();
+      });
       let h = "";
       if (quando === "data") h = '<label class="campo"><span>Data</span><input id="qData" type="date" value="'+data+'"></label><p class="nota" id="qNota"></p>';
-      if (quando === "mensal") h = '<label class="campo"><span>Dia do mês</span><input id="qDia" inputmode="numeric" value="'+dia+'"></label>'
-        + chave("qVar", "O valor muda todo mês", "Ex.: luz, água. O valor escrito vira a estimativa", variavel)
-        + chave("qPago", receita ? "O deste mês já foi recebido" : "O deste mês já foi pago", "", pagoAtual());
-      if (quando === "vezes") h = '<div class="linha-campos"><label class="campo"><span>Quantas vezes</span><input id="qVezes" inputmode="numeric" value="'+vezes+'"></label>'
-        + '<label class="campo"><span>Dia do mês</span><input id="qDia" inputmode="numeric" value="'+dia+'"></label></div>'
-        + '<label class="campo"><span>A partir de</span><input id="qIni" type="month" value="'+inicio+'"></label>'
-        + (inicio === mesAtualStr ? chave("qPago", receita ? "A primeira já foi recebida" : "A primeira já foi paga", "", pagoAtual()) : '')
+      if (quando === "repetir") h = '<div class="chips">'+[["m","Todo mês"],["q","A cada 15 dias"],["s","Toda semana"]].map(([k,n]) => '<button class="chip'+(freq === k ? " on" : "")+'" data-freq="'+k+'">'+n+'</button>').join("")+'</div>'
+        + '<label class="campo"><span>Primeira vez</span><input id="qPrim" type="date" value="'+primeira+'"></label>'
+        + '<div class="chips"><button class="chip'+(comFim ? "" : " on")+'" data-fim="0">Sem fim</button><button class="chip'+(comFim ? " on" : "")+'" data-fim="1">Número de vezes</button></div>'
+        + (comFim ? '<label class="campo"><span>Quantas vezes</span><input id="qVezes" inputmode="numeric" value="'+vezes+'"></label>' : chave("qVar", "O valor muda a cada vez", "Ex.: luz, água. O valor escrito vira a estimativa", variavel))
+        + (primeiraJaPassou() ? chave("qPago", receita ? "A primeira já foi recebida" : "A primeira já foi paga", "", pagoAtual()) : '')
         + '<p class="nota" id="qNota"></p>';
       $("#quandoBox", f).innerHTML = h;
       const qd = $("#qData", f); if (qd) qd.onchange = () => { data = qd.value || data; rotuloBotao(); };
-      const qdi = $("#qDia", f); if (qdi) qdi.oninput = () => { dia = Math.min(31, Math.max(1, parseInt(qdi.value) || 1)); pagoJa = null; const sw = $("#qPago", f); if (sw) sw.classList.toggle("on", pagoAtual()); };
+      $$("[data-freq]", f).forEach(bt => bt.onclick = () => { freq = bt.dataset.freq; montarQuando(); });
+      $$("[data-fim]", f).forEach(bt => bt.onclick = () => { comFim = bt.dataset.fim === "1"; montarQuando(); });
+      const qp0 = $("#qPrim", f); if (qp0) qp0.onchange = () => { primeira = qp0.value || primeira; pagoJa = null; montarQuando(); };
       const qv = $("#qVar", f); if (qv) qv.onclick = () => { variavel = !variavel; qv.classList.toggle("on", variavel); };
       const qp = $("#qPago", f); if (qp) qp.onclick = () => { pagoJa = !pagoAtual(); qp.classList.toggle("on", pagoJa); };
       const qve = $("#qVezes", f); if (qve) qve.oninput = () => { vezes = Math.min(600, Math.max(2, parseInt(qve.value) || 2)); rotuloBotao(); };
-      const qi = $("#qIni", f); if (qi) qi.onchange = () => { inicio = qi.value || inicio; montarQuando(); };
       rotuloBotao();
     };
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
-      inp.placeholder = receita ? "1090 salário" : quando === "mensal" ? "400 renda" : "5,50 café";
+      inp.placeholder = receita ? "1090 salário" : quando === "repetir" ? "400 renda" : "5,50 café";
       $("#chipsCat", f).innerHTML = chipsCategorias(receita, escolhida, true);
       $$("#chipsCat .chip", f).forEach(c => c.onclick = () => { escolhida = c.dataset.c; montar(); });
       $("#nosBox", f).innerHTML = chaveNos(sh);
@@ -1335,14 +1387,11 @@ function folhaNovo(receitaInicial, quandoInicial){
         r = ponte.adicionarGasto(inp.value, escolhida, receita, sh, String(new Date(a, m-1, d, hj.getHours(), hj.getMinutes()).getTime()));
       } else if (quando === "data"){
         const [a, m, d] = data.split("-").map(Number);
-        r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, d, a+"-"+String(m).padStart(2,"0"), 1, false, false);
+        r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, data, "m", 1, false, false);
         programado = true; msg = "Programado para "+d+" de "+MESES_L[m-1];
-      } else if (quando === "mensal"){
-        r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, dia, mesAtualStr, 0, variavel, pagoAtual());
-        programado = true; msg = (receita ? "Entrada" : "Conta")+" mensal criada, todo dia "+dia;
       } else {
-        r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, dia, inicio, vezes, false, inicio === mesAtualStr && pagoAtual());
-        programado = true; msg = vezes+" parcelas criadas";
+        r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, primeira, freq, comFim ? vezes : 0, !comFim && variavel, primeiraJaPassou() && pagoAtual());
+        programado = true; msg = comFim ? vezes+" vezes criadas ("+FREQ[freq]+")" : (receita ? "Entrada" : "Conta")+" criada: "+FREQ[freq];
       }
       const res = aplicar(r);
       if (!res.ok){ aviso(res.msg || "Escreva o valor e o que foi, como “5,50 café”"); return; }
@@ -1452,21 +1501,30 @@ function textoPaga(c){
 }
 function folhaConta(id){
   const c = S.contas.find(x => x.id === id); if (!c) return;
-  const ativa = !!parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes);
-  const bloqueada = c.paga && c.pagaPor && c.pagaPor !== S.eu.id;
-  const acao = c.e ? (c.paga ? "Desmarcar recebimento" : "Marcar como recebida") : (c.paga ? "Desmarcar pagamento" : "Marcar como paga");
+  const ocs = c.ocs || [];
+  const verbo = c.e ? ["Marcar como recebida", "Desmarcar recebimento"] : ["Marcar como paga", "Desmarcar pagamento"];
+  let corpo = "";
+  if (ocs.length > 1){
+    corpo = '<div class="rotulo">Neste mês</div><div class="contas-lista">' + ocs.map(o =>
+      '<div class="item'+(o.paga ? " paga" : "")+'"><button class="check" data-oc="'+o.chave+'" aria-label="Alternar">'+ICON.ok+'</button>'
+      + '<div class="info"><b>Dia '+o.dia+(c.vezes ? ' · '+o.n+' de '+c.vezes : '')+'</b><small>'+(o.paga ? (c.e ? "recebida" : "paga")+(temCasal() && o.pagaPor ? " por "+esc(nomeDe(o.pagaPor)) : "") : prazo(o.dia - S.hoje))+'</small></div></div>').join("") + '</div>';
+  } else if (ocs.length === 1){
+    const o = ocs[0];
+    const bloqueada = o.paga && o.pagaPor && o.pagaPor !== S.eu.id;
+    corpo = (!o.paga && c.var ? '<label class="campo"><span>Valor real deste mês</span><input id="valReal" inputmode="decimal" value="'+String(c.v).replace(".", ",")+'"></label>' : '')
+      + (bloqueada ? '<p class="nota">Só '+esc(nomeDe(o.pagaPor))+' pode desmarcar.</p>' : '<button class="btn" id="sim" data-chave="'+o.chave+'">'+verbo[o.paga ? 1 : 0]+'</button>');
+  }
   abrirFolha('<h3>'+esc(c.n)+(c.sh ? '<span class="nos-tag">Nós</span>' : '')+'</h3><div class="detalhe-v'+(c.e ? " pos" : "")+'">'+(c.var ? "≈ " : "")+(c.e ? "+" : "")+din(c.v)+'</div>'
-    + '<p class="detalhe-d">'+(c.e ? "Entrada" : "Conta")+': '+esc(descConta(c))+'.<br>'+(ativa ? 'Neste mês: '+esc(textoPaga(c))+'.' : 'Não acontece neste mês.')+'</p>'
-    + (ativa && !c.paga && c.var ? '<label class="campo"><span>Valor real deste mês</span><input id="valReal" inputmode="decimal" value="'+String(c.v).replace(".", ",")+'"></label>' : '')
-    + (ativa ? (bloqueada ? '<p class="nota">Só '+esc(nomeDe(c.pagaPor))+' pode desmarcar.</p>' : '<button class="btn" id="sim">'+acao+'</button>') : '')
-    + (meu(c) ? '<button class="btn sec" id="excluirConta" style="color:var(--late)">Excluir</button>' : ''), f => {
-    const b = $("#sim", f);
-    if (b) b.onclick = () => {
-      const vr = $("#valReal", f);
-      const r = aplicar(ponte.alternarPaga(c.id, vr ? vr.value : ""));
-      if (!r.ok){ aviso(r.msg); return; }
-      vibrar(); fecharFolha(); render(false); if (!c.paga) confete(18); verificarConquistas();
+    + '<p class="detalhe-d">'+(c.e ? "Entrada" : "Conta")+': '+esc(descConta(c))+'.'+(ocs.length ? '' : '<br>Não acontece neste mês.')+'</p>'
+    + corpo + (meu(c) ? '<button class="btn sec" id="excluirConta" style="color:var(--late)">Excluir</button>' : ''), f => {
+    const pagar = (chave, valor) => {
+      const r = aplicar(ponte.alternarPaga(c.id, valor || "", chave));
+      if (!r.ok){ aviso(r.msg); return false; }
+      vibrar(); verificarConquistas(); return true;
     };
+    const b = $("#sim", f);
+    if (b) b.onclick = () => { const vr = $("#valReal", f); const era = ocs[0].paga; if (pagar(b.dataset.chave, vr ? vr.value : "")){ fecharFolha(); render(false); if (!era) confete(18); } };
+    $$("[data-oc]", f).forEach(bt => bt.onclick = () => { if (pagar(bt.dataset.oc, "")){ render(false); folhaConta(id); } });
     const ex = $("#excluirConta", f);
     if (ex) ex.onclick = () => confirmar("Excluir “"+esc(c.n)+"”?", "As próximas deixam de aparecer. O que já foi pago continua no extrato.", "Excluir", () => { aplicar(ponte.apagar(c.id)); render(false); });
   });
@@ -1475,9 +1533,9 @@ function folhaConta(id){
 function folhaContas(){
   const agoraIdx = MES_ATUAL.ano*12 + MES_ATUAL.mes;
   const grupos = [
-    ["Neste mês", c => !!parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes)],
-    ["Programadas", c => !parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes) && idxMes(c.ini) > agoraIdx],
-    ["Encerradas", c => !parcelaEm(c, MES_ATUAL.ano, MES_ATUAL.mes) && !(idxMes(c.ini) > agoraIdx)]
+    ["Neste mês", c => (c.ocs || []).length > 0],
+    ["Programadas", c => !(c.ocs || []).length && (idxMes(c.ini) > agoraIdx || restantesDepois(c) > 0)],
+    ["Encerradas", c => !(c.ocs || []).length && !(idxMes(c.ini) > agoraIdx || restantesDepois(c) > 0)]
   ];
   const item = (c, doMes) => '<div class="item'+(c.paga ? " paga" : "")+'">'
     + (doMes ? '<button class="check" data-pagar="'+c.id+'" aria-label="Alternar">'+ICON.ok+'</button>' : '')
@@ -1495,13 +1553,32 @@ function folhaContas(){
     const ligarLista = () => {
       $$("[data-pagar]", f).forEach(b => b.onclick = () => {
         const c = S.contas.find(x => x.id === b.dataset.pagar);
-        if (c && c.var && !c.paga){ folhaConta(c.id); return; }   // valor variável: pede o valor real
-        const r = aplicar(ponte.alternarPaga(b.dataset.pagar, "")); if (!r.ok) aviso(r.msg);
+        // valor variável ou várias datas no mês: abre o detalhe para escolher
+        if (c && ((c.var && !c.paga) || (c.ocs || []).length > 1)){ folhaConta(c.id); return; }
+        const r = aplicar(ponte.alternarPaga(b.dataset.pagar, "", "")); if (!r.ok) aviso(r.msg);
         vibrar(); $("#cl", f).innerHTML = lista(); ligarLista(); render(false); verificarConquistas();
       });
       $$("[data-abrir-conta]", f).forEach(b => b.onclick = () => folhaConta(b.dataset.abrirConta));
     };
     ligarLista();
+  });
+}
+
+/* ---------- Premium ---------- */
+function alternarPremium(ativo){
+  aplicar(ponte.definirPremium(ativo));
+  if (!ativo) modo = "total";
+  preparar(); vibrar(); render(false);
+  aviso(ativo ? "Premium ativado" : "Premium desativado. Seus dados continuam guardados.");
+}
+function folhaPremium(motivo){
+  abrirFolha('<h3>Premium</h3>'+(motivo ? '<p class="nota">'+esc(motivo)+'</p>' : '')
+    + '<div class="contas-lista">'
+    + '<div class="item"><span style="font-size:1.5rem">🔁</span><div class="info"><b>Contas que se repetem</b><small>Todo mês, a cada 15 dias ou toda semana, com ou sem fim (parceladas)</small></div></div>'
+    + '<div class="item"><span style="font-size:1.5rem">💞</span><div class="info"><b>Visão de casal</b><small>Eu, Nós e Total, partilhar lançamentos e acerto de contas</small></div></div>'
+    + '</div><p class="nota" style="margin-top:12px">Por enquanto é grátis: basta ativar. Se desativar, nada é apagado; tudo volta quando ativar de novo.</p>'
+    + '<button class="btn" id="ativarPremium">Ativar Premium</button>', f => {
+    $("#ativarPremium", f).onclick = () => { fecharFolha(); alternarPremium(true); };
   });
 }
 
@@ -1524,8 +1601,8 @@ function folhaReferencia(id, evitarInicial){
       $("#cEv", f).onclick = () => { ev = !ev; montar(); };
       $("#rDest", f).innerHTML = ev ? '<div class="rotulo">Para onde vai o valor evitado</div><div class="chips">'
         + '<button class="chip'+(!meta ? " on" : "")+'" data-m="">Só contar</button>'
-        + S.metas.map(m => '<button class="chip'+(meta === m.id ? " on" : "")+'" data-m="'+m.id+'">'+esc(m.e)+' '+esc(m.n)+'</button>').join("")
-        + '</div>' + (S.metas.length ? '' : '<p class="nota">Crie um destino (curso, imprevisto…) na aba Trocas para mandar o dinheiro para lá.</p>') : '';
+        + S.metasVis.map(m => '<button class="chip'+(meta === m.id ? " on" : "")+'" data-m="'+m.id+'">'+esc(m.e)+' '+esc(m.n)+'</button>').join("")
+        + '</div>' + (S.metasVis.length ? '' : '<p class="nota">Crie um destino (curso, imprevisto…) na aba Trocas para mandar o dinheiro para lá.</p>') : '';
       $$("#rDest .chip", f).forEach(b => b.onclick = () => { meta = b.dataset.m; montar(); });
     };
     montar();

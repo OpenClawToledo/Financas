@@ -31,12 +31,20 @@ object Estado {
         val hoje = Datas.diaHoje()
         val contas = JSONArray()
         Armazem.contas(ctx).forEach { c ->
-            val quem = Armazem.quemPagou(ctx, c.id)
+            val ocs = Armazem.ocorrenciasComPagamento(ctx, c)
+            val arrOcs = JSONArray()
+            ocs.forEach { (o, p) -> arrOcs.put(JSONObject().put("chave", o.chave).put("dia", o.data.dayOfMonth).put("n", o.n)
+                .put("paga", p != null).put("pagaPor", p?.dono ?: "")) }
+            val aberta = ocs.firstOrNull { it.second == null }
+            val ref = aberta ?: ocs.lastOrNull()
             contas.put(JSONObject().put("id", c.id).put("n", c.nome).put("v", c.valor).put("dia", c.dia).put("e", c.entrada)
                 .put("ini", c.ini).put("vezes", c.vezes).put("var", c.variavel).put("c", c.categoria)
-                .put("parcela", c.parcelaEm(Datas.mesAtual()) ?: 0)
-                .put("sh", c.sh).put("dono", c.dono).put("paga", quem != null).put("pagaPor", quem ?: "")
-                .put("diasAte", Datas.diaEfetivo(c.dia) - hoje))
+                .put("freq", c.freq).put("d0", c.d0).put("ocs", arrOcs)
+                .put("parcela", ref?.first?.n ?: 0)
+                .put("sh", c.sh).put("dono", c.dono)
+                .put("paga", ocs.isNotEmpty() && aberta == null)
+                .put("pagaPor", ocs.firstNotNullOfOrNull { it.second }?.dono ?: "")
+                .put("diasAte", (ref?.first?.data?.dayOfMonth ?: Datas.diaEfetivo(c.dia)) - hoje))
         }
 
         val metas = JSONArray()
@@ -92,6 +100,7 @@ object Estado {
             .put("notif", Ajustes.notifAtiva(ctx))
             .put("agitar", Ajustes.agitarAtivo(ctx))
             .put("sens", Ajustes.sensibilidade(ctx))
+            .put("premium", Armazem.premium(ctx))
             .put("bateriaLivre", Agitar.bateriaLivre(ctx))
             .put("atualizacao", Atualizador.estado(ctx))
             .put("servidorProprio", Sessao.url(ctx) != Sessao.URL_PADRAO)
@@ -177,20 +186,33 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
      * Lançamento que se repete ou acontece noutra data. texto = "400 renda"; ini = yyyy-MM; vezes = 0 (todo mês), 1 (data única) ou N.
      * pagoJa = o deste mês já foi pago/recebido (cria o lançamento agora).
      */
+    /**
+     * Conta que se repete ou fica programada. d0 = primeira data (yyyy-MM-dd); freq = "m", "q" ou "s";
+     * vezes = 0 (sem fim), 1 (data única) ou N. pagoJa = a primeira já foi paga/recebida.
+     * Repetir (vezes != 1) é recurso Premium; uma data única é livre.
+     */
     @JavascriptInterface fun adicionarRecorrente(texto: String, categoria: String, receita: Boolean, sh: Boolean,
-                                                 dia: Int, ini: String, vezes: Int, variavel: Boolean, pagoJa: Boolean): String {
+                                                 d0: String, freq: String, vezes: Int, variavel: Boolean, pagoJa: Boolean): String {
+        if (vezes != 1 && !Armazem.premium(ctx)) return resp(false, "Repetir contas é um recurso Premium")
         val g = Interpretador.interpretar(texto, receita) ?: return resp(false, "Escreva o valor e o que é, como “400 renda”")
-        if (dia !in 1..31 || vezes < 0 || vezes > 600 || !Regex("^\\d{4}-\\d{2}$").matches(ini)) return resp(false, "Confira a data e o número de vezes")
+        val data = try { java.time.LocalDate.parse(d0) } catch (e: Exception) { return resp(false, "Confira a data") }
+        if (vezes < 0 || vezes > 600) return resp(false, "Confira o número de vezes")
+        val f = if (freq == "q" || freq == "s") freq else "m"
         val nome = g.descricao.replaceFirstChar { it.uppercase() }
         val cat = categoria.ifBlank { if (receita) g.categoria else g.categoria.takeIf { it != Categorias.OUTROS } ?: "" }
-        val id = Armazem.adicionarConta(ctx, nome, g.valor, dia, receita, sh, ini, vezes, variavel, cat)
-        if (pagoJa && ini <= Datas.mesAtual()) Armazem.contasDoMes(ctx).firstOrNull { it.id == id }?.let { Armazem.alternarPaga(ctx, id) }
+        val ini = String.format("%04d-%02d", data.year, data.monthValue)
+        val compartilhar = sh && Armazem.premium(ctx)
+        val id = Armazem.adicionarConta(ctx, nome, g.valor, data.dayOfMonth, receita, compartilhar, ini, vezes, variavel, cat, f, if (f == "m") "" else d0)
+        if (pagoJa && !data.isAfter(java.time.LocalDate.now()) && ini == Datas.mesAtual())
+            Armazem.alternarPaga(ctx, id, null, if (f == "m") ini else d0)
         atualizarNotif()
         return resp(true)
     }
 
-    @JavascriptInterface fun alternarPaga(id: String, valorReal: String): String {
-        val ok = Armazem.alternarPaga(ctx, id, Interpretador.paraNumero(valorReal)?.takeIf { it > 0 })
+    @JavascriptInterface fun definirPremium(ativo: Boolean): String = mudar { Armazem.definirPremium(ctx, ativo) }
+
+    @JavascriptInterface fun alternarPaga(id: String, valorReal: String, chave: String): String {
+        val ok = Armazem.alternarPaga(ctx, id, Interpretador.paraNumero(valorReal)?.takeIf { it > 0 }, chave)
         atualizarNotif()
         return resp(ok, if (ok) "" else "Só quem marcou pode desmarcar")
     }

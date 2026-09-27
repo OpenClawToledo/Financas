@@ -21,23 +21,59 @@ data class Gasto(
 )
 
 data class Lanc(val id: String, val q: Long, val v: Double, val d: String, val c: String, val receita: Boolean, val sh: Boolean, val dono: String, val cf: String)
+/** Uma ocorrência da conta: a data em que vence, qual é (1 = primeira) e a chave usada para marcar como paga. */
+data class Ocorrencia(val data: java.time.LocalDate, val n: Int, val chave: String)
+
 /**
- * Conta recorrente ou programada.
- * ini = mês de início (yyyy-MM; vazio = desde sempre); vezes = 0 para todo mês sem fim, N para N meses (parcelas),
- * 1 para uma data específica. variavel = o valor muda a cada mês (o valor guardado é a estimativa).
+ * Conta que se repete ou está programada.
+ * freq: "m" mensal (ini = yyyy-MM, dia do mês), "q" a cada 15 dias ou "s" semanal (d0 = primeira data, yyyy-MM-dd).
+ * vezes: 0 = sem fim, 1 = data única, N = N vezes (parcelas). variavel = o valor muda (o guardado é a estimativa).
  */
 data class ContaFixa(
     val id: String, val nome: String, val valor: Double, val dia: Int, val entrada: Boolean, val sh: Boolean, val dono: String,
-    val ini: String = "", val vezes: Int = 0, val variavel: Boolean = false, val categoria: String = ""
+    val ini: String = "", val vezes: Int = 0, val variavel: Boolean = false, val categoria: String = "",
+    val freq: String = "m", val d0: String = ""
 ) {
     private fun idx(m: String): Int? = m.split("-").takeIf { it.size == 2 }?.let { (a, b) -> a.toIntOrNull()?.let { y -> b.toIntOrNull()?.let { y * 12 + it - 1 } } }
-    /** Parcela deste mês (1 = primeira) ou null se a conta não acontece neste mês. */
+
+    /** Parcela mensal deste mês (1 = primeira) ou null. Só para contas mensais. */
     fun parcelaEm(mes: String): Int? {
         val i0 = idx(ini) ?: return if (vezes == 0) 1 else null
         val i = (idx(mes) ?: return null) - i0
         return if (i >= 0 && (vezes == 0 || i < vezes)) i + 1 else null
     }
-    fun ativaEm(mes: String) = parcelaEm(mes) != null
+
+    fun passoDias(): Int = if (freq == "q") 14 else 7
+
+    fun inicio(): java.time.LocalDate? = try { java.time.LocalDate.parse(d0) } catch (e: Exception) {
+        idx(ini)?.let { java.time.LocalDate.of(it / 12, it % 12 + 1, 1).let { m -> m.withDayOfMonth(minOf(dia, m.lengthOfMonth())) } }
+    }
+
+    /** Todas as ocorrências dentro do mês (ano, mês 1-12). */
+    fun ocorrenciasNoMes(ano: Int, mes: Int): List<Ocorrencia> {
+        val primeiro = java.time.LocalDate.of(ano, mes, 1)
+        val ultimo = primeiro.withDayOfMonth(primeiro.lengthOfMonth())
+        if (freq != "q" && freq != "s") {
+            val chave = String.format("%04d-%02d", ano, mes)
+            val n = parcelaEm(chave) ?: return emptyList()
+            return listOf(Ocorrencia(primeiro.withDayOfMonth(minOf(dia, primeiro.lengthOfMonth())), n, chave))
+        }
+        val ini = inicio() ?: return emptyList()
+        val passo = passoDias().toLong()
+        var k = maxOf(0L, Math.floorDiv(java.time.temporal.ChronoUnit.DAYS.between(ini, primeiro) + passo - 1, passo))
+        val lista = ArrayList<Ocorrencia>()
+        while (true) {
+            if (vezes > 0 && k >= vezes) break
+            val d = ini.plusDays(k * passo)
+            if (d.isAfter(ultimo)) break
+            lista.add(Ocorrencia(d, (k + 1).toInt(), d.toString()))
+            k++
+        }
+        return lista
+    }
+
+    fun ocorrenciasAgora(): List<Ocorrencia> = java.time.LocalDate.now().let { ocorrenciasNoMes(it.year, it.monthValue) }
+    fun ativaEm(mes: String) = mes.split("-").let { ocorrenciasNoMes(it[0].toInt(), it[1].toInt()).isNotEmpty() }
 }
 data class Meta(val id: String, val nome: String, val alvo: Double, val emoji: String, val tipo: String, val sh: Boolean, val dono: String, val atual: Double)
 
@@ -196,45 +232,79 @@ object Armazem {
     fun contas(ctx: Context): List<ContaFixa> = b(ctx).todos("conta").map {
         val o = it.dados
         ContaFixa(it.id, o.optString("n"), o.optDouble("v"), o.optInt("dia", 1), o.optBoolean("e"), it.sh, it.dono,
-            o.optString("ini"), o.optInt("vezes", 0), o.optBoolean("var"), o.optString("c"))
+            o.optString("ini"), o.optInt("vezes", 0), o.optBoolean("var"), o.optString("c"),
+            o.optString("freq", "m").ifEmpty { "m" }, o.optString("d0"))
     }.sortedBy { it.dia }
 
     /** Contas que acontecem no mês atual. */
     fun contasDoMes(ctx: Context): List<ContaFixa> = contas(ctx).filter { it.ativaEm(Datas.mesAtual()) }
 
     fun adicionarConta(ctx: Context, nome: String, valor: Double, dia: Int, entrada: Boolean, sh: Boolean,
-                       ini: String = "", vezes: Int = 0, variavel: Boolean = false, categoria: String = ""): String =
+                       ini: String = "", vezes: Int = 0, variavel: Boolean = false, categoria: String = "",
+                       freq: String = "m", d0: String = ""): String =
         novo(ctx, "conta", sh, JSONObject().put("n", nome).put("v", valor).put("dia", dia).put("e", entrada)
-            .put("ini", ini).put("vezes", vezes).put("var", variavel).put("c", categoria))
+            .put("ini", ini).put("vezes", vezes).put("var", variavel).put("c", categoria).put("freq", freq).put("d0", d0))
 
-    private fun pagoDoMes(ctx: Context, contaId: String): Reg? {
-        val mes = Datas.mesAtual()
-        return b(ctx).todos("pago").firstOrNull { it.dados.optString("conta") == contaId && it.dados.optString("mes") == mes }
+    /** Registro de pagamento de uma ocorrência (chave = yyyy-MM nas mensais, yyyy-MM-dd nas semanais/quinzenais). */
+    fun pagoDe(ctx: Context, contaId: String, chave: String): Reg? =
+        b(ctx).todos("pago").firstOrNull { it.dados.optString("conta") == contaId && it.dados.optString("mes") == chave }
+
+    /** Ocorrências deste mês com quem as pagou (null = em aberto). */
+    fun ocorrenciasComPagamento(ctx: Context, c: ContaFixa): List<Pair<Ocorrencia, Reg?>> =
+        c.ocorrenciasAgora().map { it to pagoDe(ctx, c.id, it.chave) }
+
+    /** Paga = todas as ocorrências deste mês estão pagas. */
+    fun estaPaga(ctx: Context, contaId: String): Boolean {
+        val c = contas(ctx).firstOrNull { it.id == contaId } ?: return false
+        val oc = ocorrenciasComPagamento(ctx, c)
+        return oc.isNotEmpty() && oc.all { it.second != null }
     }
 
-    fun estaPaga(ctx: Context, contaId: String): Boolean = pagoDoMes(ctx, contaId) != null
-    fun quemPagou(ctx: Context, contaId: String): String? = pagoDoMes(ctx, contaId)?.dono
+    fun quemPagou(ctx: Context, contaId: String): String? {
+        val c = contas(ctx).firstOrNull { it.id == contaId } ?: return null
+        return ocorrenciasComPagamento(ctx, c).firstNotNullOfOrNull { it.second }?.dono
+    }
 
-    /** Marcar como paga (ou recebida) cria o lançamento correspondente, visível como a conta. */
-    fun alternarPaga(ctx: Context, contaId: String, valorReal: Double? = null): Boolean {
+    /**
+     * Marca (ou desmarca) uma ocorrência como paga/recebida e cria o lançamento correspondente.
+     * chave vazia = a primeira em aberto deste mês (ou a última paga, para desmarcar).
+     */
+    fun alternarPaga(ctx: Context, contaId: String, valorReal: Double? = null, chave: String = ""): Boolean {
         val c = contas(ctx).firstOrNull { it.id == contaId } ?: return false
-        val pago = pagoDoMes(ctx, contaId)
+        val ocs = ocorrenciasComPagamento(ctx, c)
+        if (ocs.isEmpty()) return false
+        val alvo = if (chave.isNotEmpty()) ocs.firstOrNull { it.first.chave == chave } ?: return false
+                   else ocs.firstOrNull { it.second == null } ?: ocs.last()
+        val (oc, pago) = alvo
         if (pago != null) {
             if (pago.dono != eu(ctx)) return false   // quem marcou é quem pode desmarcar
             apagar(ctx, pago.id)
             val inicio = inicio()
-            b(ctx).todos("lanc").firstOrNull { it.dono == eu(ctx) && it.dados.optString("cf") == contaId && it.dados.optLong("q") >= inicio }
-                ?.let { apagar(ctx, it.id) }
+            b(ctx).todos("lanc").firstOrNull {
+                it.dono == eu(ctx) && it.dados.optString("cf") == contaId &&
+                    (it.dados.optString("oc") == oc.chave || (it.dados.optString("oc").isEmpty() && c.freq == "m" && it.dados.optLong("q") >= inicio))
+            }?.let { apagar(ctx, it.id) }
             return true
         }
-        novo(ctx, "pago", c.sh, JSONObject().put("conta", contaId).put("mes", Datas.mesAtual()))
-        val parcela = c.parcelaEm(Datas.mesAtual())
-        val nome = if (c.vezes > 1 && parcela != null) "${c.nome} ($parcela/${c.vezes})" else c.nome
-        val d = JSONObject().put("q", System.currentTimeMillis()).put("v", valorReal ?: c.valor).put("d", nome).put("cf", contaId)
+        novo(ctx, "pago", c.sh, JSONObject().put("conta", contaId).put("mes", oc.chave))
+        val nome = if (c.vezes > 1) "${c.nome} (${oc.n}/${c.vezes})" else c.nome
+        val d = JSONObject().put("q", System.currentTimeMillis()).put("v", valorReal ?: c.valor).put("d", nome).put("cf", contaId).put("oc", oc.chave)
         if (c.entrada) d.put("t", "r").put("c", c.categoria.ifEmpty { Categorias.detectar(c.nome, true) })
         else d.put("t", "d").put("c", c.categoria.ifEmpty { Categorias.FIXAS })
         novo(ctx, "lanc", c.sh, d)
         return true
+    }
+
+    // ---------- Plano (Premium) ----------
+    /** Premium ativo? Fica num registro da própria pessoa, por isso vale em todos os aparelhos dela. */
+    fun premium(ctx: Context): Boolean = b(ctx).todos("plano").filter { it.dono == eu(ctx) }.any { it.dados.optBoolean("premium") }
+
+    /** Liga ou desliga o Premium. Desligar não apaga nada: só esconde os recursos Premium. */
+    fun definirPremium(ctx: Context, ativo: Boolean) {
+        val meus = b(ctx).todos("plano").filter { it.dono == eu(ctx) }
+        val d = JSONObject().put("premium", ativo).put("q", System.currentTimeMillis())
+        if (meus.isEmpty()) novo(ctx, "plano", false, d)
+        else { meus.forEach { b(ctx).salvar(it.copy(dados = d)) }; Nuvem.agendar(ctx) }
     }
 
     // ---------- Destinos: juntar (meta) ou amortizar (imprevisto) ----------
@@ -337,10 +407,9 @@ object Previsao {
     /** Contas a pagar ainda em aberto neste mês, com dias até o vencimento (negativo = atrasada). */
     fun proximasContas(ctx: Context): List<Pair<ContaFixa, Int>> {
         val hoje = Datas.diaHoje()
-        return Armazem.contasDoMes(ctx)
-            .filter { !it.entrada && !Armazem.estaPaga(ctx, it.id) }
-            .map { it to (Datas.diaEfetivo(it.dia) - hoje) }
-            .sortedBy { it.second }
+        return Armazem.contasDoMes(ctx).filter { !it.entrada }.mapNotNull { c ->
+            Armazem.ocorrenciasComPagamento(ctx, c).firstOrNull { it.second == null }?.let { c to (it.first.data.dayOfMonth - hoje) }
+        }.sortedBy { it.second }
     }
 }
 
