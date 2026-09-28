@@ -39,7 +39,7 @@ object Estado {
             val ref = aberta ?: ocs.lastOrNull()
             contas.put(JSONObject().put("id", c.id).put("n", c.nome).put("v", c.valor).put("dia", c.dia).put("e", c.entrada)
                 .put("ini", c.ini).put("vezes", c.vezes).put("var", c.variavel).put("c", c.categoria)
-                .put("freq", c.freq).put("d0", c.d0).put("ocs", arrOcs)
+                .put("freq", c.freq).put("d0", c.d0).put("pm", c.pm).put("ocs", arrOcs)
                 .put("parcela", ref?.first?.n ?: 0)
                 .put("sh", c.sh).put("dono", c.dono)
                 .put("paga", ocs.isNotEmpty() && aberta == null)
@@ -121,6 +121,8 @@ interface Hospedeiro {
     fun importar()
     fun ouvir()
     fun pararDeOuvir()
+    /** Escolher um PDF ou foto de fatura no celular. */
+    fun escolherFatura()
     fun compartilhar(texto: String)
     fun liberarBateria()
     fun permitirInstalacao()
@@ -211,6 +213,69 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
         atualizarNotif()
         return resp(true)
     }
+
+    /**
+     * Fatura confirmada na folha. json: {nome, valor, data (yyyy-MM-dd), pm (0 = só esta; 1, 2, 3, 6, 12 meses),
+     * vezes (0 = sem fim), parcela (n.º desta, se for prestação), variavel, paga, cat, sh, contaId (conta já existente)}.
+     */
+    @JavascriptInterface fun adicionarFatura(json: String): String {
+        val o = try { JSONObject(json) } catch (e: Exception) { return resp(false, "Dados inválidos") }
+        val valor = Interpretador.paraNumero(o.optString("valor"))?.takeIf { it > 0 } ?: return resp(false, "Confira o valor")
+        var data = try { java.time.LocalDate.parse(o.optString("data")) } catch (e: Exception) { return resp(false, "Confira a data") }
+        val hoje = java.time.LocalDate.now()
+        val paga = o.optBoolean("paga")
+        val quando = { d: java.time.LocalDate ->
+            if (d.isAfter(hoje)) System.currentTimeMillis()
+            else d.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
+        val mesDe = { d: java.time.LocalDate -> String.format("%04d-%02d", d.year, d.monthValue) }
+
+        // Fatura de uma conta que já existe: atualiza o valor (se varia) e marca como paga
+        val contaId = o.optString("contaId")
+        if (contaId.isNotEmpty()) {
+            val c = Armazem.contas(ctx).firstOrNull { it.id == contaId } ?: return resp(false, "Conta não encontrada")
+            if (c.variavel && c.dono == Armazem.eu(ctx)) Armazem.mudarValorConta(ctx, c.id, valor)
+            if (paga) {
+                val chave = if (c.freq == "m") mesDe(data) else data.toString()
+                val oc = c.ocorrenciasNoMes(data.year, data.monthValue).firstOrNull { it.chave == chave }
+                Armazem.pagarOcorrencia(ctx, c, chave, oc?.n ?: 1, quando(data), valor)
+            }
+            atualizarNotif()
+            return resp(true, "Fatura registada em ${c.nome}")
+        }
+
+        val nome = o.optString("nome").trim().ifEmpty { "Fatura" }
+        val pm = o.optInt("pm", 0)
+        val repete = pm > 0
+        if (repete && !Armazem.premium(ctx)) return resp(false, "Contas que se repetem são um recurso Premium")
+        var vezes = if (repete) maxOf(0, o.optInt("vezes", 0)) else 1
+        val parcela = if (repete && vezes > 0) o.optInt("parcela", 0).coerceIn(0, vezes) else 0
+        // uma fatura única em atraso de meses anteriores aparece como a pagar hoje
+        if (!repete && !paga && data.isBefore(hoje.withDayOfMonth(1))) data = hoje
+        // prestação 12 de 48: a conta começa na 1.ª, para esta ser a 12.ª
+        val inicio = if (parcela > 1) data.minusMonths(((parcela - 1) * pm).toLong()) else data
+        val c0 = ContaFixa("", nome, valor, data.dayOfMonth, false, false, "", mesDe(inicio), vezes, false, "", "m", "", maxOf(1, pm))
+        val id = Armazem.adicionarConta(ctx, nome, valor, data.dayOfMonth, false, o.optBoolean("sh") && Armazem.premium(ctx),
+            mesDe(inicio), vezes, o.optBoolean("variavel") && repete, o.optString("cat"), "m", "", maxOf(1, pm))
+        if (paga) {
+            val c = Armazem.contas(ctx).firstOrNull { it.id == id }
+            if (c != null) Armazem.pagarOcorrencia(ctx, c, mesDe(data), c0.parcelaEm(mesDe(data)) ?: 1, quando(data), valor)
+        }
+        atualizarNotif()
+        val oque = when {
+            !repete -> "Fatura adicionada"
+            vezes > 0 -> "Conta criada: ${vezes - maxOf(parcela, 1) + 1} de $vezes prestações pela frente"
+            else -> "Conta criada: " + mapOf(1 to "todo mês", 2 to "a cada 2 meses", 3 to "a cada 3 meses", 6 to "a cada 6 meses", 12 to "todo ano").getOrElse(pm) { "a cada $pm meses" }
+        }
+        return resp(true, oque)
+    }
+
+    @JavascriptInterface fun copiar(texto: String): String {
+        ctx.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("Finanças", texto))
+        return resp(true, "Copiado")
+    }
+
+    @JavascriptInterface fun escolherFatura() { host.escolherFatura() }
 
     @JavascriptInterface fun definirPremium(ativo: Boolean): String = mudar { Armazem.definirPremium(ctx, ativo) }
 

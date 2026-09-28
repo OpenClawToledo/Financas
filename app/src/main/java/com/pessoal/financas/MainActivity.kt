@@ -50,6 +50,13 @@ class MainActivity : Activity(), Hospedeiro {
         } catch (e: Exception) {}
     }
 
+    override fun escolherFatura() = runOnUiThread {
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+            .putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/pdf", "image/*"))
+        @Suppress("DEPRECATION")
+        startActivityForResult(i, ESCOLHER_FATURA)
+    }
+
     override fun ouvir() = voz.iniciar()
     override fun pararDeOuvir() = voz.parar()
 
@@ -198,6 +205,11 @@ class MainActivity : Activity(), Hospedeiro {
         if (resultCode != RESULT_OK || uri == null) return
         try {
             when (requestCode) {
+                ESCOLHER_FATURA -> {
+                    startActivity(Intent(this, FaturaActivity::class.java).setAction(Intent.ACTION_SEND)
+                        .setType(contentResolver.getType(uri) ?: "*/*").putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                }
                 EXPORTAR -> {
                     contentResolver.openOutputStream(uri)?.use { it.write(Backup.exportar(this).toByteArray()) }
                     avisar("Backup salvo")
@@ -234,5 +246,6 @@ class MainActivity : Activity(), Hospedeiro {
     companion object {
         private const val EXPORTAR = 31
         private const val IMPORTAR = 32
+        private const val ESCOLHER_FATURA = 33
     }
 }

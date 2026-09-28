@@ -75,6 +75,7 @@ class LancamentoRapidoActivity : Activity(), Hospedeiro {
     override fun abrirAjustesApp() {}
     override fun exportar() {}
     override fun importar() {}
+    override fun escolherFatura() {}
     override fun ouvir() = voz.iniciar()
     override fun pararDeOuvir() = voz.parar()
 

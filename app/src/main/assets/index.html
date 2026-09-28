@@ -330,6 +330,11 @@ body.entrada main{padding:48px 0 40px}
 
 /* Modo rápido: só a folha de novo lançamento, por cima de qualquer app */
 body.rapido{background:transparent}
+.mb{margin:0 18px 12px;padding:12px 14px;border-radius:16px;background:var(--ink);display:flex;align-items:center;gap:10px;font-size:.88rem}
+.mb div{flex:1;min-width:0;font-variant-numeric:tabular-nums}
+.mb small{display:block;color:var(--muted)}
+.lendo{margin:18px auto 22px;width:34px;height:34px;border-radius:50%;border:3px solid var(--surface2);border-top-color:var(--mango);animation:girar .8s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
 body.rapido .topo, body.rapido main, body.rapido nav{display:none}
 body.rapido .veu{background:rgba(5,4,10,.45)}
 
@@ -352,7 +357,8 @@ body.rapido .veu{background:rgba(5,4,10,.45)}
 <script>
 "use strict";
 const ponte = window.App;
-const RAPIDO = location.hash === "#rapido";
+const FATURA = location.hash === "#fatura";
+const RAPIDO = location.hash === "#rapido" || FATURA;
 const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.financas);
 let S = null, aba = "feed", modo = "total", limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
 let extr = {ano:0, mes:0, tipo:"todas", ordem:"data", busca:""};
@@ -445,10 +451,14 @@ const mesStr = (a, m) => a + "-" + String(m+1).padStart(2, "0");
 function parcelaEm(c, a, m){
   const i0 = idxMes(c.ini);
   if (i0 === null) return c.vezes ? null : 1;
-  const i = a*12 + m - i0;
-  return i >= 0 && (!c.vezes || i < c.vezes) ? i + 1 : null;
+  const i = a*12 + m - i0, p = Math.max(1, c.pm || 1);
+  if (i < 0 || i % p) return null;
+  const n = i / p;
+  return !c.vezes || n < c.vezes ? n + 1 : null;
 }
 const FREQ = {m:"todo mês", q:"a cada 15 dias", s:"toda semana"};
+const PM_TXT = {1:"todo mês", 2:"a cada 2 meses", 3:"a cada 3 meses", 6:"a cada 6 meses", 12:"todo ano"};
+const freqTxt = c => (!c.freq || c.freq === "m") ? (PM_TXT[c.pm || 1] || "a cada "+c.pm+" meses") : FREQ[c.freq];
 /** Datas em que a conta vence no mês (a = ano, m = mês 0-11). */
 function ocorrencias(c, a, m){
   const fim = new Date(a, m+1, 0);
@@ -477,7 +487,9 @@ function restantesDepois(c){
   const fimMes = new Date(MES_ATUAL.ano, MES_ATUAL.mes + 1, 0);
   if (!c.freq || c.freq === "m"){
     const i0 = idxMes(c.ini); if (i0 === null) return 0;
-    return Math.max(0, (i0 + c.vezes - 1) - Math.max(i0, MES_ATUAL.ano*12 + MES_ATUAL.mes + 1) + 1);
+    const p = Math.max(1, c.pm || 1), cur = MES_ATUAL.ano*12 + MES_ATUAL.mes;
+    const ate = cur < i0 ? 0 : Math.min(c.vezes, Math.floor((cur - i0) / p) + 1);
+    return Math.max(0, c.vezes - ate);
   }
   const [y, mo, dd] = (c.d0 || "").split("-").map(Number); if (!y) return 0;
   const passo = c.freq === "q" ? 14 : 7;
@@ -488,7 +500,7 @@ function restantesDepois(c){
 function descConta(c){
   const p = c.ini ? c.ini.split("-").map(Number) : [0, 0];
   if (c.vezes === 1) return "única, "+c.dia+" de "+MESES_L[p[1]-1]+(p[0] !== MES_ATUAL.ano ? " de "+p[0] : "");
-  const f = FREQ[c.freq || "m"];
+  const f = freqTxt(c);
   if (c.vezes > 1){
     const oc = (c.ocs || []).find(o => !o.paga) || (c.ocs || [])[0];
     if (oc) return f+", "+oc.n+" de "+c.vezes;
@@ -1554,6 +1566,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     + '<div class="chips rolar" id="chipsCat"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
     + '<div id="nosBox"></div>'
     + '<button class="btn" id="salvarGasto">Adicionar</button>'
+    + (!RAPIDO && typeof ponte.escolherFatura === "function" ? '<button class="btn sec" id="lerFatura">📄 Ler fatura (PDF ou foto)</button>' : '')
     + (evitar.length ? '<div class="rotulo">Ou registre uma troca</div><div class="chips">'+evitar.map(r => '<button class="chip verde" data-ev="'+r.id+'">Evitei '+esc(r.e)+' '+esc(r.n)+' · '+din(r.v)+'</button>').join("")+'</div>' : ''), f => {
     const inp = $("#txtGasto", f);
     const valorDigitado = () => { const r = inp.value.trim() ? ponte.detectar(inp.value, receita) : ""; return r ? JSON.parse(r) : null; };
@@ -1652,6 +1665,7 @@ function folhaNovo(receitaInicial, quandoInicial){
       verificarConquistas();
     };
     $("#salvarGasto", f).onclick = salvar;
+    const lf = $("#lerFatura", f); if (lf) lf.onclick = () => { fecharFolha(); ponte.escolherFatura(); };
     inp.onkeydown = e => { if (e.key === "Enter") salvar(); };
 
     // ----- Voz -----
@@ -1679,6 +1693,102 @@ function folhaNovo(receitaInicial, quandoInicial){
     montar();
   });
 }
+
+/* ---------- Fatura partilhada (PDF, foto ou texto): confirmar e adicionar ---------- */
+function folhaLendo(){
+  abrirFolha('<h3>Lendo a fatura…</h3><div class="lendo"></div><p class="nota" style="text-align:center">Tudo acontece no seu celular. Nada é enviado para fora.</p>');
+}
+window.mostrarFatura = function(f){
+  if (folhaAberta) fecharFolha(true);
+  if (f.erro){
+    abrirFolha('<h3>Não deu para ler</h3><p class="nota">'+esc(f.erro)+'</p><button class="btn" id="fMao">Lançar à mão</button><button class="btn sec" id="fSair">Fechar</button>', fo => {
+      $("#fMao", fo).onclick = () => { fecharFolha(true); folhaNovo(false); };
+      $("#fSair", fo).onclick = () => fecharFolha();
+    });
+    return;
+  }
+  folhaFatura(f);
+};
+const semAcento = s => String(s || "").normalize("NFD").replace(/\p{Mn}+/gu, "").toLowerCase().trim();
+const dataCurta = iso => { if (!iso) return ""; const [a, m, d] = iso.split("-").map(Number); return d+" "+MESES[m-1]+(a !== MES_ATUAL.ano ? " "+a : ""); };
+function folhaFatura(f){
+  const hoje = isoData(Date.now());
+  const chaveNome = n => semAcento(n).split(/\s+/)[0];
+  const existente = f.emissor !== "Fatura" ? S.contasVis.find(c => !c.e && chaveNome(c.n) === chaveNome(f.emissor)) : null;
+  let usarExistente = !!existente;
+  let nome = f.emissor === "Fatura" ? "" : f.emissor;
+  let valor = f.valor ? f.valor.toFixed(2).replace(".", ",") : "";
+  let data = f.dataLimite || f.dataEmissao || hoje;
+  let pm = S.premium ? f.pm : 0, sugestao = f.pm;
+  let prestacoes = f.totalParcelas > 0;
+  let variavel = !!f.variavel;
+  let paga = !!f.debitoDireto && data <= hoje;
+  let cat = f.categoria || "Contas fixas";
+  let sh = modo === "nos";
+  const PMS = [[0,"Só esta"],[1,"Todo mês"],[2,"2 em 2 meses"],[3,"3 em 3 meses"],[6,"6 em 6 meses"],[12,"Todo ano"]];
+  abrirFolha('<h3>📄 Fatura'+(f.emissor !== "Fatura" ? ' '+esc(f.emissor) : '')+'</h3><div id="fCorpo"></div>', fo => {
+    const montar = () => {
+      let h = '';
+      const info = [f.periodoIni ? 'Período '+dataCurta(f.periodoIni)+' a '+dataCurta(f.periodoFim) : '', f.dataEmissao ? 'emitida '+dataCurta(f.dataEmissao) : '',
+        f.debitoDireto ? 'débito direto' : '', f.qr ? 'valor conferido no código QR' : ''].filter(Boolean).join(' · ');
+      if (info) h += '<p class="nota">'+esc(info)+'</p>';
+      if (existente) h += '<div class="chips">'
+        + '<button class="chip'+(usarExistente ? " on" : "")+'" data-ex="1">Registar em “'+esc(existente.n)+'”</button>'
+        + '<button class="chip'+(usarExistente ? "" : " on")+'" data-ex="0">Criar conta nova</button></div>';
+      if (!usarExistente) h += '<label class="campo"><span>Nome</span><input id="fNome" value="'+esc(nome)+'" placeholder="Ex.: Luz, Internet, Seguro do carro"></label>';
+      h += '<div class="linha-campos" style="display:flex;gap:10px;margin:0 18px 12px">'
+        + '<label class="campo"><span>Valor</span><input id="fValor" inputmode="decimal" value="'+esc(valor)+'" placeholder="0,00"></label>'
+        + '<label class="campo"><span>'+(f.debitoDireto ? "Data do débito" : "Data limite")+'</span><input id="fData" type="date" value="'+data+'"></label></div>';
+      if (f.entidade || f.referencia) h += '<div class="mb"><div><small>Multibanco</small>'+(f.entidade ? 'Entidade <b>'+esc(f.entidade)+'</b> · ' : '')+'Ref. <b>'+esc(f.referencia)+'</b></div>'
+        + '<button class="btn mini sec" id="fCopiar">Copiar ref.</button></div>';
+      if (!usarExistente){
+        h += '<div class="rotulo">Repete?</div><div class="chips rolar">'+PMS.map(([k,n]) => '<button class="chip'+(pm === k ? " on" : "")+'" data-pm="'+k+'">'+n+(k && !S.premium ? " 🔒" : "")+'</button>').join("")+'</div>';
+        if (!S.premium && sugestao) h += '<p class="nota">Parece repetir '+esc(PM_TXT[sugestao] || "")+'. Com o Premium vira uma conta que se repete sozinha.</p>';
+        if (pm && f.totalParcelas) h += chave("fPrest", "Prestação "+f.parcela+" de "+f.totalParcelas, "Criar as "+(f.totalParcelas - f.parcela + 1)+" que faltam (incluindo esta) e terminar na última", prestacoes);
+        if (pm && !(prestacoes && f.totalParcelas)) h += chave("fVar", "O valor muda de fatura para fatura", "Luz, água, gás: o valor desta fica como estimativa das próximas", variavel);
+      }
+      h += chave("fPaga", "Já está paga", data < hoje && !f.debitoDireto ? "A data já passou: marque se já pagou" : (f.debitoDireto ? "Débito direto: é paga sozinha na data" : ""), paga);
+      if (!usarExistente){
+        h += '<div class="rotulo">Categoria</div><div class="chips rolar">'+S.categorias.map(c => '<button class="chip'+(c === cat ? " on" : "")+'" data-fcat="'+esc(c)+'">'+cat_(c)+'</button>').join("")+'</div>';
+        h += chaveNos(sh);
+      }
+      h += '<button class="btn" id="fSalvar">'+(usarExistente ? 'Registar em '+esc(existente.n) : pm ? 'Criar conta' : 'Adicionar fatura')+'</button>'
+        + '<button class="btn sec" id="fCancelar">Cancelar</button>';
+      $("#fCorpo", fo).innerHTML = h;
+      // mostra a opção escolhida nas filas que deslizam
+      $$(".chips.rolar", fo).forEach(fila => { const on = $(".chip.on", fila); if (on) fila.scrollLeft = on.offsetLeft - fila.offsetLeft - 18; });
+      const guardar = () => { const n = $("#fNome", fo); if (n) nome = n.value; valor = $("#fValor", fo).value; data = $("#fData", fo).value || data; };
+      $$("[data-ex]", fo).forEach(b => b.onclick = () => { guardar(); usarExistente = b.dataset.ex === "1"; montar(); });
+      $$("[data-pm]", fo).forEach(b => b.onclick = () => {
+        const k = +b.dataset.pm;
+        if (k && !S.premium){ folhaPremium("Contas que se repetem (mensais, a cada 2, 3 ou 6 meses, anuais e prestações) são um recurso Premium."); return; }
+        guardar(); pm = k; montar();
+      });
+      $$("[data-fcat]", fo).forEach(b => b.onclick = () => { guardar(); cat = b.dataset.fcat; montar(); });
+      const tg = (id, f2) => { const e = $("#"+id, fo); if (e) e.onclick = () => { guardar(); f2(); montar(); }; };
+      tg("fPrest", () => prestacoes = !prestacoes);
+      tg("fVar", () => variavel = !variavel);
+      tg("fPaga", () => paga = !paga);
+      tg("swNos", () => sh = !sh);
+      const fd = $("#fData", fo); if (fd) fd.onchange = () => { guardar(); montar(); };
+      const cp = $("#fCopiar", fo); if (cp) cp.onclick = () => { aplicar(ponte.copiar(f.referencia.replace(/\s/g, ""))); aviso("Referência copiada"); vibrar(); };
+      $("#fCancelar", fo).onclick = () => fecharFolha();
+      $("#fSalvar", fo).onclick = () => {
+        guardar();
+        const pedido = usarExistente ? {contaId: existente.id, valor, data, paga}
+          : {nome: nome.trim() || f.emissor, valor, data, pm, vezes: pm && prestacoes && f.totalParcelas ? f.totalParcelas : 0,
+             parcela: pm && prestacoes && f.totalParcelas ? f.parcela : 0, variavel: variavel && !(prestacoes && f.totalParcelas), paga, cat, sh};
+        const r = aplicar(ponte.adicionarFatura(JSON.stringify(pedido)));
+        if (!r.ok){ aviso(r.msg || "Confira o valor e a data"); return; }
+        vibrar();
+        if (RAPIDO){ ponte.avisar(r.msg); fecharFolha(); return; }
+        fecharFolha(); render(false); aviso(r.msg);
+      };
+    };
+    montar();
+  });
+}
+const cat_ = c => cat(c)[0]+" "+esc(c);
 
 /* ---------- Detalhe: editar, duplicar, apagar ---------- */
 function folhaDetalhe(id){
@@ -1946,7 +2056,7 @@ carregar();
 extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes;
 if (RAPIDO){
   document.body.classList.add("rapido");
-  folhaNovo(false);
+  if (FATURA) folhaLendo(); else folhaNovo(false);
 } else {
   render(true);
   setTimeout(verificarConquistas, 900);

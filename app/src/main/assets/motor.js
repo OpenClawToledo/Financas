@@ -148,7 +148,7 @@
     const o = r.dados;
     return {
       id: r.id, nome: o.n || "", valor: +o.v || 0, dia: o.dia || 1, entrada: !!o.e, sh: r.sh, dono: r.dono,
-      ini: o.ini || "", vezes: o.vezes || 0, variavel: !!o.var, categoria: o.c || "", freq: o.freq || "m", d0: o.d0 || ""
+      ini: o.ini || "", vezes: o.vezes || 0, variavel: !!o.var, categoria: o.c || "", freq: o.freq || "m", d0: o.d0 || "", pm: Math.max(1, o.pm || 1)
     };
   }
   const idxMes = m => { const p = (m || "").split("-"); if (p.length !== 2) return null; const a = parseInt(p[0]), b = parseInt(p[1]); return isNaN(a) || isNaN(b) ? null : a * 12 + b - 1; };
@@ -157,7 +157,9 @@
     if (i0 === null) return c.vezes === 0 ? 1 : null;
     const im = idxMes(mes); if (im === null) return null;
     const i = im - i0;
-    return i >= 0 && (c.vezes === 0 || i < c.vezes) ? i + 1 : null;
+    if (i < 0 || i % c.pm) return null;
+    const n = i / c.pm;
+    return c.vezes === 0 || n < c.vezes ? n + 1 : null;
   }
   function inicioConta(c) {
     const d = Datas.parse(c.d0); if (d) return d;
@@ -450,7 +452,7 @@
       const pagador = ocs.find(x => x[1]);
       return {
         id: c.id, n: c.nome, v: c.valor, dia: c.dia, e: c.entrada, ini: c.ini, vezes: c.vezes, var: c.variavel, c: c.categoria,
-        freq: c.freq, d0: c.d0,
+        freq: c.freq, d0: c.d0, pm: c.pm,
         ocs: ocs.map(([o, p]) => ({ chave: o.chave, dia: o.data.getUTCDate(), n: o.n, paga: !!p, pagaPor: p ? p.dono : "" })),
         parcela: ref ? ref[0].n : 0, sh: c.sh, dono: c.dono,
         paga: ocs.length > 0 && !aberta, pagaPor: pagador ? pagador[1].dono : "",
@@ -880,6 +882,7 @@
       return resp(true);
     },
     definirPremium: ativo => mudar(() => Armazem.definirPremium(!!ativo)),
+    copiar(texto) { if (IOS) nativo("copiar", { texto }); else if (navigator.clipboard) navigator.clipboard.writeText(texto); return resp(true, "Copiado"); },
     alternarPaga(id, valorReal, chave) {
       const v = Interpretador.paraNumero(valorReal);
       const r = Armazem.alternarPaga(id, v != null && v > 0 ? v : null, chave || "");

@@ -33,7 +33,8 @@ data class Ocorrencia(val data: java.time.LocalDate, val n: Int, val chave: Stri
 data class ContaFixa(
     val id: String, val nome: String, val valor: Double, val dia: Int, val entrada: Boolean, val sh: Boolean, val dono: String,
     val ini: String = "", val vezes: Int = 0, val variavel: Boolean = false, val categoria: String = "",
-    val freq: String = "m", val d0: String = ""
+    val freq: String = "m", val d0: String = "",
+    val pm: Int = 1   // mensais: a cada quantos meses (1, 2, 3, 6, 12)
 ) {
     private fun idx(m: String): Int? = m.split("-").takeIf { it.size == 2 }?.let { (a, b) -> a.toIntOrNull()?.let { y -> b.toIntOrNull()?.let { y * 12 + it - 1 } } }
 
@@ -41,7 +42,10 @@ data class ContaFixa(
     fun parcelaEm(mes: String): Int? {
         val i0 = idx(ini) ?: return if (vezes == 0) 1 else null
         val i = (idx(mes) ?: return null) - i0
-        return if (i >= 0 && (vezes == 0 || i < vezes)) i + 1 else null
+        val p = maxOf(1, pm)
+        if (i < 0 || i % p != 0) return null
+        val n = i / p
+        return if (vezes == 0 || n < vezes) n + 1 else null
     }
 
     fun passoDias(): Int = if (freq == "q") 14 else 7
@@ -268,7 +272,7 @@ object Armazem {
         val o = it.dados
         ContaFixa(it.id, o.optString("n"), o.optDouble("v"), o.optInt("dia", 1), o.optBoolean("e"), it.sh, it.dono,
             o.optString("ini"), o.optInt("vezes", 0), o.optBoolean("var"), o.optString("c"),
-            o.optString("freq", "m").ifEmpty { "m" }, o.optString("d0"))
+            o.optString("freq", "m").ifEmpty { "m" }, o.optString("d0"), maxOf(1, o.optInt("pm", 1)))
     }.sortedBy { it.dia }
 
     /** Contas que acontecem no mês atual. */
@@ -276,9 +280,26 @@ object Armazem {
 
     fun adicionarConta(ctx: Context, nome: String, valor: Double, dia: Int, entrada: Boolean, sh: Boolean,
                        ini: String = "", vezes: Int = 0, variavel: Boolean = false, categoria: String = "",
-                       freq: String = "m", d0: String = ""): String =
+                       freq: String = "m", d0: String = "", pm: Int = 1): String =
         novo(ctx, "conta", sh, JSONObject().put("n", nome).put("v", valor).put("dia", dia).put("e", entrada)
-            .put("ini", ini).put("vezes", vezes).put("var", variavel).put("c", categoria).put("freq", freq).put("d0", d0))
+            .put("ini", ini).put("vezes", vezes).put("var", variavel).put("c", categoria).put("freq", freq).put("d0", d0).put("pm", maxOf(1, pm)))
+
+    /** Troca o valor de referência da conta (contas de valor variável: a última fatura vira a estimativa). */
+    fun mudarValorConta(ctx: Context, id: String, valor: Double) = alterar(ctx, id) { it.copy(dados = JSONObject(it.dados.toString()).put("v", valor)) }
+
+    /**
+     * Regista que uma ocorrência foi paga, em qualquer mês (também no passado): o registo "pago" e o lançamento
+     * na data em que aconteceu. Não faz nada se essa ocorrência já estiver paga.
+     */
+    fun pagarOcorrencia(ctx: Context, c: ContaFixa, chave: String, n: Int, quando: Long, valor: Double) {
+        if (pagoDe(ctx, c.id, chave) != null) return
+        novo(ctx, "pago", c.sh, JSONObject().put("conta", c.id).put("mes", chave))
+        val nome = if (c.vezes > 1) "${c.nome} ($n/${c.vezes})" else c.nome
+        val d = JSONObject().put("q", quando).put("v", valor).put("d", nome).put("cf", c.id).put("oc", chave)
+        if (c.entrada) d.put("t", "r").put("c", c.categoria.ifEmpty { Categorias.detectar(c.nome, true) })
+        else d.put("t", "d").put("c", c.categoria.ifEmpty { Categorias.FIXAS })
+        novo(ctx, "lanc", c.sh, d)
+    }
 
     /** Registro de pagamento de uma ocorrência (chave = yyyy-MM nas mensais, yyyy-MM-dd nas semanais/quinzenais). */
     fun pagoDe(ctx: Context, contaId: String, chave: String): Reg? =

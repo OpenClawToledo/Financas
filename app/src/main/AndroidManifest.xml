@@ -51,6 +51,34 @@
             android:theme="@style/Rapido"
             android:windowSoftInputMode="stateVisible|adjustResize" />
 
+        <!-- Partilhar uma fatura (PDF, foto, print ou texto) com o Finanças -->
+        <activity
+            android:name=".FaturaActivity"
+            android:exported="true"
+            android:label="Adicionar fatura"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Rapido"
+            android:windowSoftInputMode="stateHidden|adjustResize">
+            <intent-filter android:label="Adicionar fatura">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="Adicionar fatura">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+
+        <!-- Modelos de leitura de texto e QR (baixados pelo Google Play Services, sem custo) -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr,barcode" />
+
         <receiver
             android:name=".ReceptorGasto"
             android:exported="false" />
