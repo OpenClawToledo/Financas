@@ -344,6 +344,13 @@
     adicionarConta(nome, valor, dia, entrada, sh, ini, vezes, variavel, categoria, freq, d0) {
       return this.novo("conta", sh, { n: nome, v: valor, dia, e: entrada, ini, vezes, var: variavel, c: categoria, freq, d0 });
     },
+    editarConta(id, nome, valor, categoria, dia) {
+      this.alterar(id, r => {
+        Object.assign(r.dados, { n: nome, v: valor, c: categoria });
+        if (dia >= 1 && dia <= 31 && (r.dados.freq || "m") === "m") r.dados.dia = dia;
+        return r;
+      });
+    },
     pagoDe: (contaId, chave) => Banco.todos("pago").find(r => r.dados.conta === contaId && r.dados.mes === chave) || null,
     ocorrenciasComPagamento(c) { return ocorrenciasAgora(c).map(o => [o, this.pagoDe(c.id, o.chave)]); },
     alternarPaga(contaId, valorReal, chave) {
@@ -857,6 +864,11 @@
       const v = Interpretador.paraNumero(valor);
       if (v === null || v <= 0 || !String(desc || "").trim()) return resp(false);
       return mudar(() => Armazem.editar(id, { quando: parseInt(q), valor: v, descricao: desc.trim(), categoria: cat, receita: !!receita }, !!sh));
+    },
+    editarConta(id, nome, valor, cat, dia) {
+      const v = Interpretador.paraNumero(valor);
+      if (v === null || v <= 0 || !String(nome || "").trim()) return resp(false);
+      return mudar(() => Armazem.editarConta(id, nome.trim(), v, cat, +dia || 0));
     },
     duplicarGasto: id => mudar(() => Armazem.duplicar(id)),
     apagar: id => mudar(() => Armazem.apagar(id)),

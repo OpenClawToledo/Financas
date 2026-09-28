@@ -284,6 +284,16 @@ object Armazem {
         novo(ctx, "conta", sh, JSONObject().put("n", nome).put("v", valor).put("dia", dia).put("e", entrada)
             .put("ini", ini).put("vezes", vezes).put("var", variavel).put("c", categoria).put("freq", freq).put("d0", d0).put("pm", maxOf(1, pm)))
 
+    /**
+     * "Este e os próximos": muda a conta daqui para frente (nome, valor, categoria e, se for mensal, o dia).
+     * Os lançamentos já feitos e os pagamentos registados ficam como estão.
+     */
+    fun editarConta(ctx: Context, id: String, nome: String, valor: Double, categoria: String, dia: Int) = alterar(ctx, id) { r ->
+        val o = JSONObject(r.dados.toString()).put("n", nome).put("v", valor).put("c", categoria)
+        if (dia in 1..31 && o.optString("freq", "m").ifEmpty { "m" } == "m") o.put("dia", dia)
+        r.copy(dados = o)
+    }
+
     /** Troca o valor de referência da conta (contas de valor variável: a última fatura vira a estimativa). */
     fun mudarValorConta(ctx: Context, id: String, valor: Double) = alterar(ctx, id) { it.copy(dados = JSONObject(it.dados.toString()).put("v", valor)) }
 

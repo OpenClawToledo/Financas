@@ -100,6 +100,14 @@ main{padding:0 0 110px}
 .ed-desc,.ed-data{width:100%;margin-top:8px;padding:8px 0;border:0;border-bottom:1px dashed var(--line);background:transparent;font-size:1rem}
 .ed-data{color:var(--muted);font-size:.9rem;color-scheme:dark}
 .corpo.editando .chave{width:100%;margin:10px 0 0;background:var(--ink)}
+.ed-escopo{margin:0 0 10px;padding:10px 12px;border-radius:16px;background:var(--ink)}
+.ed-escopo > small{display:block;color:var(--muted);font-size:.8rem;margin-bottom:8px}
+.ed-escopo .seg{margin:0;background:var(--surface)}
+.ed-escopo .seg button{padding:8px 6px;font-size:.88rem}
+.ed-escopo .seg button.on{background:var(--marca);color:var(--marca-tx)}
+.ed-escopo .nota-esc{display:block;margin-top:8px;font-size:.82rem;color:var(--muted);line-height:1.4}
+.ed-escopo .nota-esc b{color:var(--text);font-weight:600}
+.rep-tag{display:inline-block;margin-left:6px;font-size:.72rem;padding:2px 7px;border-radius:9px;background:rgba(52,211,153,.14);color:var(--ok);font-weight:500}
 .ed-acoes{display:flex;gap:8px;margin-top:12px}
 .ed-acoes button{flex:1;padding:10px 6px;border-radius:14px;background:var(--surface2);font-size:.9rem}
 .ed-acoes .ok{background:var(--marca);color:var(--marca-tx);font-weight:700}
@@ -1149,7 +1157,7 @@ function post(g){
   const r = g.t === "r";
   const ult = g.cm.length ? g.cm[g.cm.length-1] : null;
   return '<article class="post" data-id="'+g.id+'"'+(meu(g) ? '' : ' data-alheio="1"')+'><div class="fundo-apagar">Apagar</div><div class="corpo">'
-    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
+    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
     + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(g.c)+'</button></header>'
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
@@ -1766,23 +1774,48 @@ function editarNoCartao(el, id){
   const corpo = $(".corpo", el);
   let receita = g.t === "r", escolhida = g.c, sh = !!g.sh;
   let v = String(g.v).replace(".", ","), d = g.d, dt = isoData(g.q);
+  // lançamento de uma conta que se repete: escolher se a mudança vale só aqui ou também daqui para frente
+  const conta = contaDaSerie(g);
+  const podeSerie = conta && meu(conta);
+  let escopo = "este";
   corpo.style.transform = ""; corpo.classList.add("editando");
+  const notaEscopo = () => {
+    if (!conta) return "";
+    if (escopo === "este") return "Muda só este lançamento. <b>A conta e as próximas datas continuam iguais.</b>";
+    const mensal = !conta.freq || conta.freq === "m";
+    const vs = String(v).trim(), nv = parseFloat(vs.includes(",") ? vs.replace(/\./g, "").replace(",", ".") : vs), mud = [];
+    if (nv > 0 && Math.abs(nv - conta.v) >= 0.005) mud.push("valor <b>"+din(nv)+"</b>");
+    const nome = serieNome(d);
+    if (nome && nome !== conta.n) mud.push("nome <b>"+esc(nome)+"</b>");
+    if (escolhida !== (conta.c || "")) mud.push("categoria <b>"+esc(escolhida)+"</b>");
+    const dia = dt ? +dt.split("-")[2] : 0;
+    const mudaDia = dia && dia !== new Date(g.q).getDate();
+    if (mudaDia && mensal) mud.push("todo dia <b>"+dia+"</b>");
+    return (mud.length ? "Daqui para frente: "+mud.join(", ")+"." : "Nada muda nas próximas ainda.")
+      + (mudaDia && !mensal ? " A data das próximas não muda (conta "+(conta.freq === "q" ? "quinzenal" : "semanal")+"); só a deste." : "")
+      + " <b>Os lançamentos anteriores ficam como estão.</b>";
+  };
+  const atualizarNota = () => { const n = $(".nota-esc", corpo); if (n) n.innerHTML = notaEscopo(); };
   const desenhar = () => {
     const [emoji, cor] = cat(escolhida);
     corpo.innerHTML = '<div class="ed-topo"><span class="av" style="--c:'+cor+'">'+emoji+'</span>'
       + '<div class="seg"><button data-r="0" class="'+(receita ? "" : "on")+'">Saída</button><button data-r="1" class="'+(receita ? "on" : "")+'">Entrada</button></div>'
       + '<button class="tag" style="--c:'+cor+'" data-ed-cat>'+esc(escolhida)+'</button></div>'
+      + (conta ? '<div class="ed-escopo"><small>🔁 Faz parte de “'+esc(conta.n)+'” · '+esc(descConta(conta))+'</small>'
+        + (podeSerie ? '<div class="seg"><button data-esc="este" class="'+(escopo === "este" ? "on" : "")+'">Só este</button><button data-esc="prox" class="'+(escopo === "prox" ? "on" : "")+'">Este e os próximos</button></div>' : '')
+        + '<span class="nota-esc">'+(podeSerie ? notaEscopo() : "Só quem criou a conta pode mudar as próximas; aqui muda só este lançamento.")+'</span></div>' : '')
       + '<input class="ed-valor'+(receita ? " pos" : "")+'" id="edV" inputmode="decimal" aria-label="Valor" value="'+esc(v)+'">'
       + '<input class="ed-desc" id="edD" aria-label="Descrição" value="'+esc(d)+'" enterkeyhint="done">'
       + '<input class="ed-data" id="edDt" type="date" aria-label="Data" value="'+dt+'">'
       + chaveNos(sh)
       + '<div class="ed-acoes"><button data-ed="cancelar">Cancelar</button><button data-ed="dup">Duplicar</button><button class="del" data-ed="apagar">Apagar</button></div>'
       + '<div class="ed-acoes"><button class="ok" data-ed="salvar">Salvar</button></div>';
-    $("#edV", corpo).oninput = e => { v = e.target.value; };
-    $("#edD", corpo).oninput = e => { d = e.target.value; };
+    $("#edV", corpo).oninput = e => { v = e.target.value; atualizarNota(); };
+    $("#edD", corpo).oninput = e => { d = e.target.value; atualizarNota(); };
+    $$("[data-esc]", corpo).forEach(b => b.onclick = () => { escopo = b.dataset.esc; vibrar(); desenhar(); });
     $("#edD", corpo).onkeydown = e => { if (e.key === "Enter") salvar(); };
-    $("#edDt", corpo).oninput = e => { dt = e.target.value; };
-    $$(".seg button", corpo).forEach(b => b.onclick = () => {
+    $("#edDt", corpo).oninput = e => { dt = e.target.value; atualizarNota(); };
+    $$("[data-r]", corpo).forEach(b => b.onclick = () => {
       receita = b.dataset.r === "1";
       const lista = receita ? S.categoriasReceita : S.categorias;
       if (!lista.includes(escolhida)) escolhida = receita ? "Extra" : "Outros";
@@ -1806,10 +1839,24 @@ function editarNoCartao(el, id){
     const orig = new Date(g.q);
     const nq = a ? new Date(a, m-1, dd, orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds()).getTime() : g.q;
     if (!aplicar(ponte.editarGasto(id, String(nq), v, d, escolhida, receita, sh)).ok){ aviso("Confira o valor e a descrição"); return; }
+    if (podeSerie && escopo === "prox"){
+      const mensal = !conta.freq || conta.freq === "m";
+      const r = aplicar(ponte.editarConta(conta.id, serieNome(d) || conta.n, v, escolhida, mensal && a ? dd : 0));
+      vibrar(); render(false); aviso(r.ok ? "Salvo neste e nos próximos" : "Salvo só neste; confira os dados da conta"); return;
+    }
     vibrar(); render(false); aviso("Alterações salvas");
   };
   desenhar();
 }
+
+/* Conta que se repete de onde veio o lançamento (null se é avulso ou de data única) */
+function contaDaSerie(g){
+  if (!g.cf) return null;
+  const c = S.contas.find(x => x.id === g.cf);
+  return c && c.vezes !== 1 ? c : null;
+}
+/* "Internet (3/12)" → "Internet": o número da parcela é do lançamento, não da conta */
+const serieNome = d => String(d || "").replace(/\s*\(\d+\/\d+\)\s*$/, "").trim();
 
 /* ================= Curtidas e comentários animados ao rolar ================= */
 const COM_VISTOS = (() => { try { return new Set(JSON.parse(localStorage.getItem("fin.comVistos") || "[]")); } catch(e){ return new Set(); } })();
