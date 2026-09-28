@@ -882,6 +882,12 @@
       return resp(true);
     },
     definirPremium: ativo => mudar(() => Armazem.definirPremium(!!ativo)),
+    enviarFeedback(tipo, texto) {
+      if (!String(texto || "").trim()) return resp(false, "Escreva a sua mensagem");
+      Armazem.novo("feedback", false, { tipo, t: String(texto).trim().slice(0, 4000), q: agora(), versao: INFO.versao,
+        aparelho: navigator.userAgent.slice(0, 160), sistema: INFO.plataforma });
+      return resp(true);
+    },
     copiar(texto) { if (IOS) nativo("copiar", { texto }); else if (navigator.clipboard) navigator.clipboard.writeText(texto); return resp(true, "Copiado"); },
     alternarPaga(id, valorReal, chave) {
       const v = Interpretador.paraNumero(valorReal);

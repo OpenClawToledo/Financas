@@ -186,6 +186,23 @@ main{padding:0 0 110px}
 
 /* ---------- Perfil ---------- */
 .perfil-top{text-align:center;padding:10px 18px 4px}
+.menu-grupo{margin:0 18px 8px;border-radius:20px;background:var(--surface);overflow:hidden}
+.menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;text-align:left;border-bottom:1px solid var(--line)}
+.menu-item:last-child{border-bottom:0}
+.mi-ic{width:34px;height:34px;border-radius:11px;background:var(--surface2);display:grid;place-items:center;font-size:1.05rem;flex:none}
+.mi-tx{flex:1;min-width:0}
+.mi-tx b{display:block;font-weight:600;font-size:.95rem}
+.mi-tx small{display:block;color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi-seta{color:var(--muted);font-size:1.4rem;line-height:1}
+.pag-topo{display:flex;align-items:center;gap:6px;padding:4px 10px 12px}
+.pag-topo button{width:40px;height:40px;border-radius:12px;font-size:1.8rem;line-height:1;color:var(--text)}
+.pag-topo h2{margin:0;font-family:var(--serif);font-size:1.35rem}
+.legal{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;margin:6px 18px 4px}
+.legal button{font-size:.82rem;color:var(--muted);text-decoration:underline;padding:6px 2px}
+.doc{margin:0 18px 12px;font-size:.9rem;line-height:1.55}
+.doc h4{margin:16px 0 4px;font-size:.95rem}
+.doc p{margin:0 0 8px;color:var(--text)}
+.campo textarea{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--ink);color:var(--text);font:inherit;resize:vertical}
 .grande-av{width:96px;height:96px;margin:0 auto 10px;border-radius:50%;padding:4px;background:conic-gradient(var(--mango),var(--heart),var(--violet),var(--mango))}
 .grande-av span{width:100%;height:100%;border-radius:50%;display:grid;place-items:center;background:var(--ink);font-family:var(--serif);font-size:2.4rem;font-weight:700}
 .perfil-top h2{margin:0;font-family:var(--serif);font-size:1.6rem}
@@ -360,7 +377,7 @@ const ponte = window.App;
 const FATURA = location.hash === "#fatura";
 const RAPIDO = location.hash === "#rapido" || FATURA;
 const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.financas);
-let S = null, aba = "feed", modo = "total", limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
+let S = null, aba = "feed", modo = (() => { try { return localStorage.getItem("fin.modo") || "total"; } catch(e){ return "total"; } })(), limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
 let extr = {ano:0, mes:0, tipo:"todas", ordem:"data", busca:""};
 
 const CATS = {
@@ -705,6 +722,7 @@ function fecharFolha(imediato){
 
 /* ---------- Navegação ---------- */
 function ir(nova){
+  if (nova !== aba) perfilPag = null;
   aba = nova;
   $$("nav [data-aba]").forEach(b => b.classList.toggle("ativo", b.dataset.aba === aba));
   window.scrollTo(0,0);
@@ -712,6 +730,7 @@ function ir(nova){
 }
 window.voltar = function(){
   if (folhaAberta){ fecharFolha(); return true; }
+  if (aba === "perfil" && perfilPag){ perfilPag = null; render(false); return true; }
   if (aba !== "feed"){ ir("feed"); return true; }
   return false;
 };
@@ -745,7 +764,7 @@ function seletorModo(){
 }
 
 /* ================= Início ================= */
-let vista = "cartoes";
+let vista = (() => { try { return localStorage.getItem("fin.vista") || "cartoes"; } catch(e){ return "cartoes"; } })();
 function heroiAtual(){
   const n = numerosMes();
   const mes = cap(MESES_L[MES_ATUAL.mes]);
@@ -1140,61 +1159,204 @@ function secaoContaMenu(){
     + '<button class="btn sec" id="sairConta" style="color:var(--late)">Sair da conta neste celular</button>';
 }
 
-function telaPerfil(){
-  const nv = nivel();
-  const ini = (S.eu.nome || "E").trim().charAt(0).toUpperCase();
-  let h = '<div class="perfil-top"><div class="grande-av"><span>'+esc(ini)+'</span></div><h2>'+esc(S.eu.nome)+'</h2>'
-    + '<p>'+(temCasal() ? "Finanças a dois com "+esc(S.parceiro.nome) : esc(S.nuvem.email))+'</p></div>'
-    + '<div class="nivel"><div class="cab"><b>Nível '+nv.n+'</b><small>'+nv.xp+' / '+nv.prox+' pontos</small></div><div class="trilho"><i data-f="'+nv.frac+'"></i></div>'
-    + '<p class="nota" style="margin:0">Pontos por registrar, comentar e, principalmente, por cada troca.</p></div>'
-    + '<div class="stats"><div><b>'+S.meusLanc.length+'</b><small>lançamentos</small></div><div><b>'+sequencia()+'</b><small>dias seguidos</small></div><div><b>'+S.trocas.length+'</b><small>trocas</small></div></div>';
-  h += secaoCasal();
-  h += '<h3 class="h3">Conquistas</h3><div class="conquistas">';
-  CONQUISTAS.forEach(c => { h += '<div class="conq'+(c.ok() ? "" : " bloq")+'"><span class="i">'+c.i+'</span><b>'+esc(c.n)+'</b><small>'+esc(c.d)+'</small></div>'; });
-  h += '</div>' + telaMenu()
-    + '<h3 class="h3">Seu nome</h3><label class="campo"><input id="pNome" value="'+esc(S.eu.nome)+'"></label><button class="btn" id="salvarPerfil">Salvar nome</button>';
-  return h;
+/* ================= Perfil: 3 partes, cada opção abre a sua página ================= */
+let perfilPag = null;
+const lerPref = (k, pad) => { try { return localStorage.getItem("fin."+k) || pad; } catch(e){ return pad; } };
+const gravarPref = (k, v) => { try { localStorage.setItem("fin."+k, v); } catch(e){} };
+
+function pagConta(){
+  return '<label class="campo"><span>Seu nome</span><input id="pNome" value="'+esc(S.eu.nome)+'"></label><button class="btn" id="salvarPerfil">Salvar nome</button>'
+    + secaoContaMenu().replace('<h3 class="h3">Conta</h3>', '<div class="rotulo">Conta</div>')
+      .replace('<button class="btn sec" id="sairConta" style="color:var(--late)">Sair da conta neste celular</button>', '')
+      .replace('<div class="linha-botoes"><button class="btn sec" id="testarServ">Testar ligação</button><button class="btn sec" id="configServidor">Servidor</button></div>', '');
 }
-function secaoRapidoIOS(){
+function pagMetricas(){
+  const nv = nivel();
+  let h = '<div class="nivel"><div class="cab"><b>Nível '+nv.n+'</b><small>'+nv.xp+' / '+nv.prox+' pontos</small></div><div class="trilho"><i data-f="'+nv.frac+'"></i></div>'
+    + '<p class="nota" style="margin:0">Pontos por registrar, comentar e, principalmente, por cada troca.</p></div>'
+    + '<div class="stats"><div><b>'+S.meusLanc.length+'</b><small>lançamentos</small></div><div><b>'+sequencia()+'</b><small>dias seguidos</small></div><div><b>'+S.trocas.length+'</b><small>trocas</small></div></div>'
+    + '<h3 class="h3">Conquistas</h3><div class="conquistas">';
+  CONQUISTAS.forEach(c => { h += '<div class="conq'+(c.ok() ? "" : " bloq")+'"><span class="i">'+c.i+'</span><b>'+esc(c.n)+'</b><small>'+esc(c.d)+'</small></div>'; });
+  return h + '</div>';
+}
+function pagExperiencia(){
+  const chips = (lista, atual, attr) => '<div class="chips">'+lista.map(([k,n]) => '<button class="chip'+(atual === k ? " on" : "")+'" '+attr+'="'+k+'">'+n+'</button>').join("")+'</div>';
+  return '<div class="rotulo">Moeda</div>' + chips([["EUR","€ Euro"],["BRL","R$ Real"]], S.moeda, "data-moeda")
+    + '<div class="rotulo">Lista do mês abre em</div>' + chips([["cartoes","Cartões"],["lista","Lista"]], vista, "data-vpad")
+    + '<div class="rotulo">Gráfico abre em</div>' + chips(GRAF_ABAS, grafVista, "data-gpad")
+    + (temCasal() ? '<div class="rotulo">Ao abrir, mostrar</div>' + chips([["total","Total"],["eu","Só eu"],["nos","Nós"]], lerPref("modo", "total"), "data-mpad") : '')
+    + '<p class="nota">As referências dos equivalentes (“x cafés”, horas de trabalho) ficam em Trocas.</p>';
+}
+function pagPlano(){
+  return '<div class="estado-nuvem">Plano atual: <b>'+(S.premium ? "Premium" : "Base")+'</b>.<br>Premium inclui contas que se repetem (mensais, a cada 15 dias, semanais, a cada 2, 3, 6 ou 12 meses, prestações) e a visão de casal.</div>'
+    + chave("swPremium", "Premium ativo", "Grátis por enquanto. Ao desativar, nada é apagado", S.premium);
+}
+function pagRapido(){
+  if (IOS) return secaoRapidoIOS().replace('<h3 class="h3">Lançamento rápido</h3>', '');
+  let h = chave("swAgitar", "Agitar para lançar", "Agite o celular em qualquer app e o popup aparece", S.agitar);
+  if (S.agitar) h += '<div class="rotulo">Força do gesto</div><div class="chips">'+[["0","Agitar forte"],["1","Normal"],["2","Agitar leve"]].map(([k,n]) => '<button class="chip'+(String(S.sens) === k ? " on" : "")+'" data-sens="'+k+'">'+n+'</button>').join("")+'</div>'
+    + '<button class="btn sec" id="testarPopup">Testar popup</button>';
   const passo = (t, d) => '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>'+t+'</b><small>'+d+'</small></div></div>';
-  return '<h3 class="h3">Lançamento rápido</h3><div class="contas-lista">'
-    + passo("Siri", "Diga “Lançar gasto no Finanças” e depois o valor e o que foi, como “5,50 café”. Fica guardado mesmo sem abrir o app.")
-    + passo("Toque traseiro", "No app Atalhos, crie um atalho com a ação “Novo lançamento” do Finanças. Depois: Ajustes → Acessibilidade → Toque → Toque traseiro → Dois toques → escolha esse atalho.")
-    + passo("Botão de Ação", "iPhone 15 Pro ou mais novo: Ajustes → Botão de Ação → Atalho → Novo lançamento.")
-    + passo("Lembretes de contas", "O iPhone avisa 3 dias antes e no dia de cada conta ainda não paga.")
+  return h + '<div class="rotulo">Outras formas</div><div class="contas-lista">'
+    + passo("Por voz", "Botão Falar na notificação, microfone na folha de lançamento, ou segure o ícone do app → Lançar por voz.")
+    + passo("Bloco “Gasto”", "Na Central de controle: toque no lápis e arraste o bloco para a área ativa.")
+    + passo("Faturas", "Partilhe o PDF ou a foto da fatura com o Finanças.")
     + '</div>';
 }
-function telaMenu(){
-  let h = secaoContaMenu();
-  h += '<h3 class="h3">Organização</h3><button class="btn sec" data-contas>Contas e dívidas</button>';
-  if (IOS) h += secaoRapidoIOS();
-  else h += '<h3 class="h3">Lançamento rápido</h3>'
-    + chave("swAgitar", "Agitar para lançar", "Agite o celular em qualquer app e o popup aparece", S.agitar);
-  if (S.agitar && !IOS){
-    h += '<div class="chips">'+[["0","Agitar forte"],["1","Normal"],["2","Agitar leve"]].map(([k,n]) => '<button class="chip'+(String(S.sens) === k ? " on" : "")+'" data-sens="'+k+'">'+n+'</button>').join("")+'</div>'
-      + '<div class="linha-botoes"><button class="btn sec" id="testarPopup">Testar popup</button><button class="btn sec" id="ajPopup">Popup flutuante</button></div>'
-      + '<div class="rotulo">Manter ativo mesmo fechando o app</div><div class="contas-lista">'
-      + '<div class="item'+(S.bateriaLivre ? " paga" : "")+'"><span class="check">'+ICON.ok+'</span><div class="info"><b>Bateria sem restrições</b><small>'+(S.bateriaLivre ? "Feito" : "Sem isto, o Android não deixa religar o gesto")+'</small></div>'+(S.bateriaLivre ? '' : '<button class="btn mini" id="libBateria">Permitir</button>')+'</div>'
-      + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Início automático</b><small>Ligue o Finanças na lista do Xiaomi</small></div><button class="btn mini sec" id="iniAuto">Abrir</button></div>'
-      + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Trancar nos recentes</b><small>Abra os apps recentes, segure o cartão do Finanças e toque no cadeado. Assim “limpar tudo” não o fecha.</small></div></div>'
-      + '</div><button class="btn sec" id="ajApp">Outros ajustes do app</button>';
-  }
-  if (!IOS) h += chave("swNotif", "Notificação fixa", S.agitar ? "Sempre ligada enquanto o agitar estiver ativo" : "Lançar puxando a barra de notificações", S.notif || S.agitar)
-    + '<p class="nota">Também dá para usar o bloco “Gasto” da Central de controle: toque no lápis e arraste-o para a área ativa.</p>';
-  h += '<h3 class="h3">Moeda</h3><div class="chips">'+[["EUR","€ Euro"],["BRL","R$ Real"]].map(([k,n]) => '<button class="chip'+(S.moeda === k ? " on" : "")+'" data-moeda="'+k+'">'+n+'</button>').join("")+'</div>';
-  h += '<h3 class="h3">Backup</h3><p class="nota">Seus dados já ficam no servidor. O arquivo é uma cópia extra, só do que é seu.</p>'
-    + '<div class="linha-botoes"><button class="btn sec" id="exportar">Salvar backup</button><button class="btn sec" id="importar">Restaurar</button></div>';
+function pagNotificacoes(){
+  if (IOS) return '<div class="contas-lista"><div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Lembretes de contas</b><small>O iPhone avisa 3 dias antes e no dia de cada conta ainda não paga.</small></div></div></div>'
+    + '<button class="btn sec" id="ajApp">Ajustes de notificação do iPhone</button>';
+  return chave("swNotif", "Notificação fixa", S.agitar ? "Sempre ligada enquanto o agitar estiver ativo" : "Em caixa, saiu hoje e o botão Lançar na barra de notificações", S.notif || S.agitar)
+    + '<div class="contas-lista">'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Popup flutuante</b><small>Para o popup do agitar aparecer por cima dos apps</small></div><button class="btn mini sec" id="ajPopup">Ajustar</button></div>'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Lembretes de contas</b><small>Todos os dias às 9h, se alguma conta vence nos próximos 3 dias</small></div></div>'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Atividade do casal</b><small>Aviso quando o parceiro(a) lança, curte ou comenta</small></div></div>'
+    + '</div><button class="btn sec" id="ajApp">Todos os ajustes de notificação</button>';
+}
+function pagPermissoes(){
+  if (IOS) return '<p class="nota">No iPhone, as permissões (notificações, Siri) ficam nos Ajustes do sistema.</p><button class="btn sec" id="ajApp">Abrir Ajustes do Finanças</button>';
   const a = S.atualizacao || {};
-  h += '<h3 class="h3">Atualizações</h3><div class="estado-nuvem">Versão instalada: <b>'+esc(S.versao || "?")+'</b>'
+  return '<div class="contas-lista">'
+    + '<div class="item'+(S.bateriaLivre ? " paga" : "")+'"><span class="check">'+ICON.ok+'</span><div class="info"><b>Bateria sem restrições</b><small>'+(S.bateriaLivre ? "Feito" : "Para o agitar e a notificação continuarem depois de fechar o app")+'</small></div>'+(S.bateriaLivre ? '' : '<button class="btn mini" id="libBateria">Permitir</button>')+'</div>'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Início automático</b><small>Ligue o Finanças na lista do Xiaomi</small></div><button class="btn mini sec" id="iniAuto">Abrir</button></div>'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Trancar nos recentes</b><small>Segure o cartão do Finanças nos apps recentes e toque no cadeado</small></div></div>'
+    + '<div class="item'+(a.podeInstalar ? " paga" : "")+'"><span class="check">'+ICON.ok+'</span><div class="info"><b>Instalar atualizações</b><small>'+(a.podeInstalar ? "Feito" : "Para o app se atualizar sozinho")+'</small></div>'+(a.podeInstalar ? '' : '<button class="btn mini" id="permInstalar">Permitir</button>')+'</div>'
+    + '<div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Microfone</b><small>Pedido na primeira vez que lançar por voz</small></div></div>'
+    + '</div><button class="btn sec" id="ajApp">Outros ajustes do app</button>';
+}
+function pagAtualizacoes(){
+  const a = S.atualizacao || {};
+  return '<div class="estado-nuvem">Versão instalada: <b>'+esc(S.versao || "?")+'</b>'
     + (a.disponivel ? '<br>Disponível: <b>'+esc(a.versao)+'</b>' : a.verificadoMs ? '<br>Verificado '+haQuanto(a.verificadoMs) : '')
     + (a.erro ? '<div class="erro" style="color:var(--muted)">'+esc(a.erro)+'</div>' : '') + '</div>'
     + (IOS ? '<p class="nota">No iPhone, as versões novas chegam pelo SideStore: quando aparecer o aviso, abra o SideStore e toque em Atualizar.</p>' : '')
-    + (a.podeInstalar ? '' : '<div class="contas-lista"><div class="item"><span class="check">'+ICON.ok+'</span><div class="info"><b>Permitir atualizar</b><small>Deixe o Finanças instalar as próprias atualizações</small></div><button class="btn mini" id="permInstalar">Permitir</button></div></div>')
     + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn" data-atualizar>Atualizar agora</button>' : '')+'</div>'
     + (IOS ? '' : chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico));
-  h += '<h3 class="h3">Plano</h3><div class="estado-nuvem">Plano atual: <b>'+(S.premium ? "Premium" : "Base")+'</b>.<br>Premium inclui contas que se repetem (mensal, a cada 15 dias, semanal, parceladas) e a visão de casal.</div>'
-    + chave("swPremium", "Premium ativo", "Grátis por enquanto. Ao desativar, nada é apagado", S.premium);
+}
+function pagDados(){
+  return '<div class="rotulo">Backup</div><p class="nota">Seus dados já ficam no servidor. O arquivo é uma cópia extra, só do que é seu.</p>'
+    + '<div class="linha-botoes"><button class="btn sec" id="exportar">Salvar backup</button><button class="btn sec" id="importar">Restaurar</button></div>'
+    + '<div class="rotulo">Servidor</div><div class="linha-botoes"><button class="btn sec" id="testarServ">Testar ligação</button><button class="btn sec" id="configServidor">Servidor</button></div>';
+}
+
+/* ----- Informações e documentos legais (texto base: rever antes de publicar numa loja) ----- */
+const DATA_DOCS = "28 de setembro de 2026";
+const doc = paras => '<div class="doc">'+paras.map(p => p.startsWith("# ") ? '<h4>'+esc(p.slice(2))+'</h4>' : '<p>'+esc(p)+'</p>').join("")+'<p class="nota" style="margin:14px 0 0">Última atualização: '+DATA_DOCS+'.</p></div>';
+function pagSobre(){
+  return '<div class="estado-nuvem">Finanças <b>'+esc(S.versao || "")+'</b><br>Gastos em segundos, a dois.</div>' + doc([
+    "O Finanças é um app de finanças pessoais e do casal: lançar gastos em segundos, ver para onde vai o dinheiro, acompanhar contas e dívidas e transformar o que se evita em objetivos.",
+    "# Onde ficam os seus dados",
+    "No seu celular e num servidor Supabase usado só para sincronizar entre os seus aparelhos e com o seu parceiro(a). A leitura de faturas e o reconhecimento de voz acontecem no próprio aparelho.",
+    "# Contacto",
+    "Sugestões, problemas e pedidos sobre os seus dados: Perfil → Enviar feedback."
+  ]);
+}
+function pagTermos(){
+  return doc([
+    "Ao usar o Finanças, você aceita estes termos.",
+    "# 1. O serviço",
+    "O Finanças ajuda a registar e organizar gastos, entradas, contas e objetivos. Os valores, previsões e sugestões são estimativas feitas a partir do que você regista e não são aconselhamento financeiro, fiscal ou jurídico.",
+    "# 2. A sua conta",
+    "Você é responsável pelo que regista e por manter a sua palavra-passe segura. Uma conta é pessoal; a visão de casal mostra ao parceiro(a) apenas o que for marcado como “Nós”.",
+    "# 3. Uso aceitável",
+    "Não use o app para atividades ilegais nem tente aceder a dados de outras pessoas.",
+    "# 4. Plano Premium",
+    "Alguns recursos são Premium. Desativar ou perder o Premium não apaga dados: os recursos ficam apenas ocultos.",
+    "# 5. Disponibilidade",
+    "O app é fornecido “tal como está”. Faremos o possível para manter o serviço e os seus dados disponíveis, mas não garantimos funcionamento sem interrupções.",
+    "# 6. Alterações",
+    "Estes termos podem mudar; a data de atualização fica no fim desta página."
+  ]);
+}
+function pagPrivacidade(){
+  return doc([
+    "Esta política explica que dados o Finanças trata e porquê, de acordo com o Regulamento Geral sobre a Proteção de Dados (RGPD).",
+    "# Que dados",
+    "E-mail e nome da conta; os lançamentos, contas, objetivos, comentários e curtidas que você cria; e dados técnicos mínimos para sincronizar (datas de atualização).",
+    "# Para quê",
+    "Apenas para o app funcionar: guardar os seus registos, sincronizá-los entre aparelhos e mostrar ao parceiro(a) o que você partilhar. Não há publicidade, venda de dados nem perfis para terceiros.",
+    "# Onde",
+    "No seu aparelho e na base de dados Supabase do app. Faturas, fotos e áudio são processados no próprio celular e não são enviados; guarda-se só o resultado que você confirmar (nome, valor, data).",
+    "# Quem vê",
+    "Só você. O parceiro(a) vê apenas o que for marcado como “Nós”, enquanto estiverem ligados como casal.",
+    "# Os seus direitos",
+    "Pode aceder, corrigir, exportar (Perfil → Backup) e pedir que os seus dados sejam apagados. Para pedidos, use Perfil → Enviar feedback → Privacidade. Pode também apresentar queixa à CNPD (cnpd.pt).",
+    "# Conservação",
+    "Os dados ficam guardados enquanto a conta existir. Sair da conta apaga a cópia do aparelho; os dados continuam no servidor até pedir que sejam apagados."
+  ]);
+}
+function pagCookies(){
+  return doc([
+    "O Finanças não usa cookies de publicidade nem ferramentas de rastreamento.",
+    "# O que é guardado no aparelho",
+    "Uma base de dados local com os seus registos (para funcionar sem internet), a sessão da conta e preferências como a moeda, a visão do gráfico e o formato da lista.",
+    "# Para quê",
+    "Estritamente para o app funcionar e lembrar as suas escolhas. Por serem necessários ao funcionamento, não pedem consentimento separado.",
+    "# Como apagar",
+    "Sair da conta apaga a sessão e a cópia local dos dados. Desinstalar o app apaga tudo o que está no aparelho."
+  ]);
+}
+
+const PAGINAS = {
+  conta: ["Conta e dados pessoais", pagConta], casal: ["Casal", () => secaoCasal().replace('<h3 class="h3">Casal</h3>', '')],
+  metricas: ["Métricas e conquistas", pagMetricas], experiencia: ["Visualização e filtros", pagExperiencia], plano: ["Plano", pagPlano],
+  rapido: ["Lançamento rápido", pagRapido], notificacoes: ["Notificações", pagNotificacoes], permissoes: ["Permissões", pagPermissoes],
+  atualizacoes: ["Atualizações", pagAtualizacoes], dados: ["Backup e servidor", pagDados],
+  sobre: ["Sobre o Finanças", pagSobre], termos: ["Termos de uso", pagTermos], privacidade: ["Política de privacidade", pagPrivacidade], cookies: ["Cookies e armazenamento", pagCookies]
+};
+
+function itemMenu(k, ic, titulo, sub){
+  return '<button class="menu-item" data-pag="'+k+'"><span class="mi-ic">'+ic+'</span><span class="mi-tx"><b>'+titulo+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</span><span class="mi-seta">›</span></button>';
+}
+function telaPerfil(){
+  if (perfilPag && PAGINAS[perfilPag]){
+    const [titulo, fn] = PAGINAS[perfilPag];
+    return '<div class="pag-topo"><button id="pagVoltar" aria-label="Voltar">‹</button><h2>'+titulo+'</h2></div>' + fn();
+  }
+  const nv = nivel();
+  const ini = (S.eu.nome || "E").trim().charAt(0).toUpperCase();
+  const a = S.atualizacao || {};
+  let h = '<div class="perfil-top"><div class="grande-av"><span>'+esc(ini)+'</span></div><h2>'+esc(S.eu.nome)+'</h2>'
+    + '<p>'+(temCasal() ? "Finanças a dois com "+esc(S.parceiro.nome) : esc(S.nuvem.email))+'</p></div>'
+    + '<div class="stats"><div><b>'+S.meusLanc.length+'</b><small>lançamentos</small></div><div><b>'+sequencia()+'</b><small>dias seguidos</small></div><div><b>'+nv.n+'</b><small>nível</small></div></div>';
+  h += '<div class="grupo">Sobre você</div><div class="menu-grupo">'
+    + itemMenu("conta", "👤", "Conta e dados pessoais", esc(S.nuvem.email))
+    + itemMenu("casal", "💞", "Casal", !S.premium ? "Premium" : temCasal() ? "Com "+esc(S.parceiro.nome) : S.nuvem.casal ? "À espera do convite" : "Convidar parceiro(a)")
+    + itemMenu("metricas", "🏅", "Métricas e conquistas", "Nível "+nv.n+" · "+CONQUISTAS.filter(c => c.ok()).length+" de "+CONQUISTAS.length+" conquistas")
+    + itemMenu("experiencia", "🎛️", "Visualização e filtros", "Moeda, lista e gráfico")
+    + itemMenu("contas", "📄", "Contas e dívidas", S.contasVis.length + " conta" + (S.contasVis.length === 1 ? "" : "s"))
+    + itemMenu("plano", "⭐", "Plano", S.premium ? "Premium" : "Base")
+    + '</div>';
+  h += '<div class="grupo">App e comportamento</div><div class="menu-grupo">'
+    + itemMenu("rapido", "⚡", "Lançamento rápido", IOS ? "Siri, toque traseiro, Botão de Ação" : (S.agitar ? "Agitar ligado" : "Agitar, voz, bloco na Central"))
+    + itemMenu("notificacoes", "🔔", "Notificações", IOS ? "Lembretes de contas" : (S.notif || S.agitar ? "Notificação fixa ligada" : "Notificação fixa desligada"))
+    + itemMenu("permissoes", "🔐", "Permissões", IOS ? "Ajustes do iPhone" : (S.bateriaLivre ? "Bateria sem restrições" : "Falta liberar a bateria"))
+    + itemMenu("atualizacoes", "⬇️", "Atualizações", a.disponivel ? "Nova versão "+esc(a.versao) : "Versão "+esc(S.versao || ""))
+    + itemMenu("dados", "💾", "Backup e servidor", "Cópia de segurança e ligação")
+    + itemMenu("feedback", "💬", "Enviar feedback", "Sugestões, problemas ou pedidos")
+    + '</div>';
+  h += '<button class="btn sec" id="sairConta" style="color:var(--late);margin-top:22px">Sair da conta neste celular</button>'
+    + '<div class="legal"><button data-pag="sobre">Sobre</button><button data-pag="termos">Termos de uso</button><button data-pag="privacidade">Privacidade</button><button data-pag="cookies">Cookies</button></div>'
+    + '<p class="nota" style="text-align:center">Finanças '+esc(S.versao || "")+'</p>';
   return h;
+}
+function folhaFeedback(){
+  let tipo = "Sugestão";
+  const TIPOS = ["Sugestão", "Problema", "Elogio", "Privacidade"];
+  abrirFolha('<h3>Enviar feedback</h3><div class="chips" id="fbTipos"></div>'
+    + '<label class="campo"><textarea id="fbTexto" rows="5" placeholder="Conte o que aconteceu ou o que gostaria de ver no app"></textarea></label>'
+    + '<p class="nota">Vai junto a versão do app e o modelo do celular, para ajudar a resolver.</p><button class="btn" id="fbEnviar">Enviar</button>', f => {
+    const tipos = () => { $("#fbTipos", f).innerHTML = TIPOS.map(t => '<button class="chip'+(t === tipo ? " on" : "")+'" data-t="'+t+'">'+t+'</button>').join("");
+      $$("[data-t]", f).forEach(b => b.onclick = () => { tipo = b.dataset.t; tipos(); }); };
+    tipos();
+    $("#fbEnviar", f).onclick = () => {
+      const t = $("#fbTexto", f).value.trim();
+      if (t.length < 3){ aviso("Escreva a sua mensagem"); return; }
+      const r = aplicar(ponte.enviarFeedback(tipo, t));
+      if (!r.ok){ aviso(r.msg || "Não foi possível enviar"); return; }
+      vibrar(); fecharFolha(); aviso("Obrigado! Feedback enviado");
+    };
+  });
 }
 
 /* ================= Ligações de eventos ================= */
@@ -1214,7 +1376,7 @@ function ligarInicio(animar){
 
   ligarPosts();
   ligarGrafico();
-  $$("[data-vista]").forEach(b => b.onclick = () => { vista = b.dataset.vista; render(false); });
+  $$("[data-vista]").forEach(b => b.onclick = () => { vista = b.dataset.vista; gravarPref("vista", vista); render(false); });
   const mais = $("#verMais"); if (mais) mais.onclick = () => { limitePosts += 40; render(false); };
 }
 function ligarPosts(){
@@ -1234,6 +1396,16 @@ function ligarPosts(){
 function ligarResto(){
   $$("[data-conta]").forEach(b => b.onclick = () => folhaConta(b.dataset.conta));
   $$("[data-contas]").forEach(b => b.onclick = folhaContas);
+  $$("[data-pag]").forEach(b => b.onclick = () => {
+    const k = b.dataset.pag;
+    if (k === "contas"){ folhaContas(); return; }
+    if (k === "feedback"){ folhaFeedback(); return; }
+    perfilPag = k; window.scrollTo(0, 0); render(false);
+  });
+  const pv = $("#pagVoltar"); if (pv) pv.onclick = () => { perfilPag = null; render(false); };
+  $$("[data-vpad]").forEach(b => b.onclick = () => { vista = b.dataset.vpad; gravarPref("vista", vista); render(false); });
+  $$("[data-gpad]").forEach(b => b.onclick = () => { grafVista = b.dataset.gpad; gravarPref("graf", grafVista); render(false); });
+  $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
   $$("[data-nova-entrada]").forEach(b => b.onclick = () => folhaNovo(true));
 
   // meses, filtros e busca

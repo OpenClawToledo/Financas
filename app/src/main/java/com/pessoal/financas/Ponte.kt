@@ -277,6 +277,16 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
 
     @JavascriptInterface fun escolherFatura() { host.escolherFatura() }
 
+    /** Feedback fica como um registo privado "feedback" no servidor (lido pelo responsável do app no Supabase). */
+    @JavascriptInterface fun enviarFeedback(tipo: String, texto: String): String {
+        if (texto.isBlank()) return resp(false, "Escreva a sua mensagem")
+        val versao = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
+        Armazem.registrarFeedback(ctx, JSONObject().put("tipo", tipo).put("t", texto.trim().take(4000)).put("q", System.currentTimeMillis())
+            .put("versao", versao).put("aparelho", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
+            .put("sistema", "Android " + android.os.Build.VERSION.RELEASE))
+        return resp(true)
+    }
+
     @JavascriptInterface fun definirPremium(ativo: Boolean): String = mudar { Armazem.definirPremium(ctx, ativo) }
 
     @JavascriptInterface fun alternarPaga(id: String, valorReal: String, chave: String): String {

@@ -351,6 +351,8 @@ object Armazem {
         return true
     }
 
+    fun registrarFeedback(ctx: Context, dados: JSONObject) { novo(ctx, "feedback", false, dados) }
+
     // ---------- Plano (Premium) ----------
     /** Premium ativo? Fica num registro da própria pessoa, por isso vale em todos os aparelhos dela. */
     fun premium(ctx: Context): Boolean = b(ctx).todos("plano").filter { it.dono == eu(ctx) }.any { it.dados.optBoolean("premium") }
