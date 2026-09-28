@@ -210,6 +210,12 @@ nav .fab svg{width:30px;height:30px;stroke:#231A05;stroke-width:2.6}
 .folha .campo input{background:var(--ink)}
 .folha .chave{background:var(--ink)}
 .entrada-grande{width:calc(100% - 36px);margin:0 18px 14px;padding:16px;border-radius:18px;border:1px solid var(--line);background:var(--ink);font-family:var(--serif);font-size:1.5rem}
+.com-voz{position:relative}
+.com-voz .entrada-grande{padding-right:64px}
+.mic{position:absolute;right:28px;top:9px;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);color:var(--text)}
+.mic svg{width:24px;height:24px;fill:currentColor}
+.mic.on{background:var(--late);color:#fff;animation:pulsoMic 1.1s ease-in-out infinite}
+@keyframes pulsoMic{0%,100%{box-shadow:0 0 0 0 rgba(255,107,91,.55)}50%{box-shadow:0 0 0 12px rgba(255,107,91,0)}}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 18px 10px}
 .chip{padding:8px 13px;border-radius:20px;background:var(--surface2);font-size:.88rem}
 .chip.on{background:var(--text);color:var(--ink)}
@@ -1353,6 +1359,33 @@ function itensCategoria(receita, comAuto){
   return (comAuto ? [{v: "", t: "✨ Automática"}] : []).concat(lista.map(c => ({v: c, t: cat(c)[0] + " " + esc(c)})));
 }
 
+/* ---------- Voz: números por extenso junto da moeda ("cinco euros e cinquenta") ---------- */
+const NUM_PAL = {zero:0,um:1,uma:1,dois:2,duas:2,"três":3,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,onze:11,doze:12,treze:13,
+  catorze:14,quatorze:14,quinze:15,dezasseis:16,dezesseis:16,dezassete:17,dezessete:17,dezoito:18,dezanove:19,dezenove:19,vinte:20,trinta:30,
+  quarenta:40,cinquenta:50,"cinqüenta":50,sessenta:60,setenta:70,oitenta:80,noventa:90,cem:100,cento:100,duzentos:200,duzentas:200,trezentos:300,
+  quatrocentos:400,quinhentos:500,seiscentos:600,setecentos:700,oitocentos:800,novecentos:900,mil:1000};
+const MOEDA_PAL = /^(€|euros?|reais|real|cêntimos?|centimos?|centavos?)$/i;
+function falaParaTexto(t){
+  let s = String(t || "").trim(), mais = /^mais\s+/i.test(s);
+  if (mais) s = s.replace(/^mais\s+/i, "");
+  const pal = s.split(/\s+/), saida = [];
+  for (let i = 0; i < pal.length; ){
+    // junta uma sequência de números por extenso ("vinte e cinco")
+    let j = i, total = 0, atual = 0, achou = false;
+    while (j < pal.length){
+      const w = pal[j].toLowerCase();
+      if (NUM_PAL[w] !== undefined){ achou = true; if (w === "mil"){ total += (atual || 1) * 1000; atual = 0; } else atual += NUM_PAL[w]; j++; }
+      else if (achou && w === "e" && j + 1 < pal.length && NUM_PAL[pal[j+1].toLowerCase()] !== undefined) j++;
+      else break;
+    }
+    const depoisMoeda = j < pal.length && MOEDA_PAL.test(pal[j]);
+    const antesMoeda = saida.length >= 2 && saida[saida.length-1].toLowerCase() === "e" && MOEDA_PAL.test(saida[saida.length-2]);
+    if (achou && (depoisMoeda || antesMoeda)){ saida.push(String(total + atual)); i = j; }
+    else { saida.push(pal[i]); i++; }
+  }
+  return (mais ? "+" : "") + saida.join(" ");
+}
+
 /* ---------- Novo lançamento (também é o modo rápido) ---------- */
 function folhaNovo(receitaInicial, quandoInicial){
   let receita = !!receitaInicial, escolhida = "", sh = modo === "nos", quando = quandoInicial || "hoje";
@@ -1361,7 +1394,9 @@ function folhaNovo(receitaInicial, quandoInicial){
   let data = isoData(Date.now()), primeira = isoData(Date.now()), freq = "m", comFim = false, vezes = 3, variavel = false, pagoJa = null;
   const evitar = S.refs.filter(r => r.evitar);
   abrirFolha('<div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
-    + '<input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
+    + '<div class="com-voz"><input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
+    + (typeof ponte.ouvir === "function" ? '<button class="mic" id="mic" aria-label="Lançar por voz"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>' : '')
+    + '</div>'
     + '<div class="chips" id="quando"></div><div id="quandoBox"></div>'
     + '<div class="chips rolar" id="chipsCat"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
     + '<div id="nosBox"></div>'
@@ -1421,7 +1456,7 @@ function folhaNovo(receitaInicial, quandoInicial){
       const d = valorDigitado();
       if (d && d.r && !receita){ receita = true; escolhida = ""; montar(); return; }
       const auto = $('#chipsCat .chip[data-c=""]', f);
-      if (auto) auto.innerHTML = !d ? "✨ Automática" : (d.e ? "✍️ " : "✨ ") + cat(d.c)[0] + " " + esc(d.c);
+      if (auto) auto.innerHTML = !d ? "✨ Automática" : (d.e ? "✍️ " : cat(d.c)[0] === "✨" ? "" : "✨ ") + cat(d.c)[0] + " " + esc(d.c);
       const dica = $(".dica-cat", f);
       if (dica) dica.textContent = !d ? "Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”"
         : escolhida ? "“"+d.d+"” em "+escolhida+" (escolhida)"
@@ -1465,6 +1500,28 @@ function folhaNovo(receitaInicial, quandoInicial){
     };
     $("#salvarGasto", f).onclick = salvar;
     inp.onkeydown = e => { if (e.key === "Enter") salvar(); };
+
+    // ----- Voz -----
+    const mic = $("#mic", f);
+    let ouvindo = false, autoSalvar = false, timerAuto = null;
+    const cancelarAuto = () => { if (!timerAuto) return; clearTimeout(timerAuto); timerAuto = null; rotuloBotao(); };
+    const pararMic = () => { ouvindo = false; if (mic) mic.classList.remove("on"); inp.placeholder = receita ? "1090 salário" : "5,50 café"; };
+    window.aoOuvir = r => {
+      if (!f.isConnected) return;
+      if (r.estado === "ouvindo"){ ouvindo = true; mic && mic.classList.add("on"); inp.value = ""; inp.placeholder = "Pode falar: “5,50 café”"; }
+      else if (r.estado === "parcial"){ inp.value = r.texto; previa(); }
+      else if (r.estado === "final"){
+        pararMic(); inp.value = falaParaTexto(r.texto); previa(); vibrar();
+        if (autoSalvar && valorDigitado()){
+          $("#salvarGasto", f).textContent = "Adicionando… toque fora para cancelar";
+          timerAuto = setTimeout(() => { timerAuto = null; salvar(); }, 1600);
+        }
+      } else { pararMic(); if (r.msg) aviso(r.msg); }
+    };
+    if (mic) mic.onclick = e => { e.stopPropagation(); cancelarAuto(); if (ouvindo){ ponte.pararDeOuvir(); pararMic(); } else { inp.blur(); ponte.ouvir(); } };
+    f.addEventListener("pointerdown", e => { if (timerAuto && e.target.id !== "salvarGasto") cancelarAuto(); }, true);
+    inp.addEventListener("input", cancelarAuto);
+    window.comecarVoz = () => { if (!mic) return; autoSalvar = true; inp.blur(); ponte.ouvir(); };
     $$("[data-ev]", f).forEach(b => b.onclick = () => { if (!RAPIDO) fecharFolha(); evitei(b.dataset.ev); });
     montar();
   });

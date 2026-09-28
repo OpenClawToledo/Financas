@@ -50,6 +50,14 @@ object Notificacao {
             .addRemoteInput(entrada).setAllowGeneratedReplies(false).build()
     }
 
+    /** Botão "Falar": abre o lançamento por voz por cima do app atual. */
+    private fun acaoVoz(ctx: Context, popup: Boolean): Notification.Action {
+        val i = Intent(ctx, LancamentoRapidoActivity::class.java).putExtra("voz", true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val pi = PendingIntent.getActivity(ctx, if (popup) 14 else 4, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_mic), "Falar", pi).build()
+    }
+
     /** Botões "Evitei …" para as referências marcadas como algo a evitar. */
     private fun acoesEvitei(ctx: Context, popup: Boolean, maximo: Int): List<Notification.Action> =
         Armazem.paraEvitar(ctx).take(maximo).mapIndexed { i, r ->
@@ -96,7 +104,8 @@ object Notificacao {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(acaoTexto(ctx, false))
-        acoesEvitei(ctx, false, 2).forEach { b.addAction(it) }
+            .addAction(acaoVoz(ctx, false))
+        acoesEvitei(ctx, false, 1).forEach { b.addAction(it) }
         return b.build()
     }
 
@@ -108,8 +117,8 @@ object Notificacao {
     fun popup(ctx: Context) {
         criarCanais(ctx)
         val evitar = Armazem.paraEvitar(ctx)
-        val dica = if (evitar.isEmpty()) "Escreva o valor e o que foi. Use + para entradas."
-        else "Escreva o valor e o que foi, ou toque em Evitei."
+        val dica = if (evitar.isEmpty()) "Escreva ou fale o valor e o que foi. Use + para entradas."
+        else "Escreva ou fale o valor e o que foi, ou toque em Evitei."
         val b = Notification.Builder(ctx, CANAL_POPUP)
             .setSmallIcon(R.drawable.ic_add)
             .setContentTitle("Novo lançamento")
@@ -119,7 +128,8 @@ object Notificacao {
             .setAutoCancel(true)
             .setTimeoutAfter(45_000)
             .addAction(acaoTexto(ctx, true))
-        acoesEvitei(ctx, true, 2).forEach { b.addAction(it) }
+            .addAction(acaoVoz(ctx, true))
+        acoesEvitei(ctx, true, 1).forEach { b.addAction(it) }
         ctx.getSystemService(NotificationManager::class.java).notify(ID_POPUP, b.build())
     }
 

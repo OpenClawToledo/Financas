@@ -119,6 +119,8 @@ interface Hospedeiro {
     fun avisar(msg: String)
     fun exportar()
     fun importar()
+    fun ouvir()
+    fun pararDeOuvir()
     fun compartilhar(texto: String)
     fun liberarBateria()
     fun permitirInstalacao()
@@ -360,4 +362,6 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
     @JavascriptInterface fun avisar(msg: String) { host.avisar(msg) }
     @JavascriptInterface fun exportar() { host.exportar() }
     @JavascriptInterface fun importar() { host.importar() }
+    @JavascriptInterface fun ouvir() { host.ouvir() }
+    @JavascriptInterface fun pararDeOuvir() { host.pararDeOuvir() }
 }

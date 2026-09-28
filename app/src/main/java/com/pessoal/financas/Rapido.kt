@@ -38,11 +38,15 @@ class BlocoRapido : TileService() {
 /** Sobreposição transparente que mostra só a folha "Novo gasto", com o mesmo visual do app. */
 class LancamentoRapidoActivity : Activity(), Hospedeiro {
     private lateinit var web: WebView
+    private val voz by lazy { Voz(this) { js(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val porVoz = intent.getBooleanExtra("voz", false)
+        if (porVoz) window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         web = Tela.criar(this, this, "file:///android_asset/index.html#rapido", true) { w ->
-            // abre o teclado automaticamente
+            // por voz: começa a ouvir; senão abre o teclado
+            if (porVoz) { w.postDelayed({ w.evaluateJavascript("window.comecarVoz && comecarVoz()", null) }, 300); return@criar }
             w.postDelayed({
                 w.requestFocus()
                 w.evaluateJavascript("window.focarEntrada && focarEntrada()", null)
@@ -71,4 +75,19 @@ class LancamentoRapidoActivity : Activity(), Hospedeiro {
     override fun abrirAjustesApp() {}
     override fun exportar() {}
     override fun importar() {}
+    override fun ouvir() = voz.iniciar()
+    override fun pararDeOuvir() = voz.parar()
+
+    override fun onPause() { voz.liberar(); super.onPause() }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == Voz.PEDIDO_DIALOGO) voz.resultadoDialogo(resultCode == RESULT_OK, data)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == Voz.PEDIDO_MICROFONE) voz.permissao(grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED)
+    }
 }

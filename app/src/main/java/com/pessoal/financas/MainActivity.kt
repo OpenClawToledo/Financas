@@ -19,6 +19,7 @@ import java.util.Locale
 /** A interface é uma página HTML local (assets/index.html) com ponte para os dados nativos. */
 class MainActivity : Activity(), Hospedeiro {
     private lateinit var web: WebView
+    private val voz by lazy { Voz(this) { js(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +31,27 @@ class MainActivity : Activity(), Hospedeiro {
         Lembretes.agendar(this)
         Nuvem.aoMudar(recarregarTela)
         tratarPedidoAtualizar(intent)
+        criarAtalhoVoz()
     }
+
+    /** Segurar o ícone do app → "Lançar por voz". */
+    private fun criarAtalhoVoz() {
+        try {
+            val sm = getSystemService(android.content.pm.ShortcutManager::class.java) ?: return
+            val i = Intent(this, LancamentoRapidoActivity::class.java).setAction(Intent.ACTION_VIEW).putExtra("voz", true)
+            sm.dynamicShortcuts = listOf(
+                android.content.pm.ShortcutInfo.Builder(this, "voz")
+                    .setShortLabel("Lançar por voz")
+                    .setLongLabel("Lançar gasto por voz")
+                    .setIcon(android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_atalho_voz))
+                    .setIntent(i)
+                    .build()
+            )
+        } catch (e: Exception) {}
+    }
+
+    override fun ouvir() = voz.iniciar()
+    override fun pararDeOuvir() = voz.parar()
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -54,6 +75,7 @@ class MainActivity : Activity(), Hospedeiro {
     }
 
     override fun onPause() {
+        voz.liberar()
         Nuvem.telaVisivel = false
         super.onPause()
     }
@@ -171,6 +193,7 @@ class MainActivity : Activity(), Hospedeiro {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == Voz.PEDIDO_DIALOGO) { voz.resultadoDialogo(resultCode == RESULT_OK, data); return }
         val uri = data?.data
         if (resultCode != RESULT_OK || uri == null) return
         try {
@@ -202,6 +225,7 @@ class MainActivity : Activity(), Hospedeiro {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == Voz.PEDIDO_MICROFONE) { voz.permissao(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED); return }
         if (requestCode != 10) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) { if (pedidoAgitar) ligarAgitar() else ligarNotificacao() }
         else avisar("Sem permissão de notificação")

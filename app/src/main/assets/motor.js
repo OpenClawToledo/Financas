@@ -245,6 +245,19 @@
     }
   };
 
+  // Frases ditadas (Siri, ditado do teclado): igual ao objeto Fala do Android
+  const Fala = {
+    normalizar(t) {
+      let s = String(t || "").trim();
+      s = s.replace(/(\d+)\s*(?:€|euros?|reais|r\$)\s+e\s+(\d{1,2})(?!\d)(?:\s*(?:cêntimos?|centimos?|centavos?))?/gi, (m, a, b) => a + "," + b.padStart(2, "0"));
+      s = s.replace(/(\d+)\s+v[íi]rgula\s+(\d{1,2})(?!\d)/gi, "$1,$2");
+      const rec = /^(?:eu\s+)?(?:recebi|ganhei)\s+/i;
+      if (rec.test(s)) s = "+" + s.replace(rec, "");
+      return s.replace(/^(?:eu\s+)?(?:gastei|paguei|comprei)\s+/i, "");
+    },
+    limparDescricao: d => d.trim().replace(/^(?:de|do|da|dos|das|no|na|nos|nas|em|com|pra|para)\s+/i, "").replace(/\s+(?:de|do|da|por|no|na|em|com)$/i, "").trim()
+  };
+
   const Interpretador = {
     numero: /\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)/,
     milhar: /^\d{1,3}(?:\.\d{3})+$/,
@@ -258,11 +271,15 @@
       return isNaN(v) ? null : v;
     },
     interpretar(texto, forcarReceita) {
-      let t = String(texto || "").trim(), receita = !!forcarReceita;
+      let t = Fala.normalizar(texto), receita = !!forcarReceita;
       if (t.startsWith("+")) { receita = true; t = t.slice(1).trim(); }
-      const m = this.numero.exec(t); if (!m) return null;
+      const todos = [...t.matchAll(new RegExp(this.numero.source, "g"))];
+      if (!todos.length) return null;
+      // "2 cafés 3 euros": vale o número colado à moeda
+      const m = todos.find(x => /^\s*(?:€|(?:euros?|eur|reais)\b)/i.test(t.slice(x.index + x[0].length)))
+        || todos.find(x => /R\$$/i.test(t.slice(0, x.index).trimEnd())) || todos[0];
       const valor = this.paraNumero(m[0]); if (valor === null || valor <= 0) return null;
-      let desc = (t.slice(0, m.index) + t.slice(m.index + m[0].length)).replace(this.simbolos(), "").replace(/\s+/g, " ").trim();
+      let desc = Fala.limparDescricao((t.slice(0, m.index) + t.slice(m.index + m[0].length)).replace(this.simbolos(), "").replace(/\s+/g, " "));
       if (!desc) desc = receita ? "Entrada" : "Sem descrição";
       const e = Categorias.escrita(desc, receita);
       if (e) return { quando: agora(), valor, descricao: e[1], categoria: e[0], receita, escrita: true };

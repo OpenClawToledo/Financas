@@ -448,11 +448,38 @@ object Previsao {
     }
 }
 
+/**
+ * Ajusta frases ditadas por voz (ou pelo teclado com ditado) antes de interpretar:
+ * "5 euros e 50 de café" → "5,50 café"; "12 vírgula 5" → "12,5"; "paguei 20 no lidl" → "20 lidl"; "recebi 100" → "+100".
+ */
+object Fala {
+    private val centimos = Regex("""(?i)(\d+)\s*(?:€|euros?|reais|r\$)\s+e\s+(\d{1,2})(?!\d)(?:\s*(?:cêntimos?|centimos?|centavos?))?""")
+    private val virgula = Regex("""(?i)(\d+)\s+v[íi]rgula\s+(\d{1,2})(?!\d)""")
+    private val gastei = Regex("""(?i)^(?:eu\s+)?(?:gastei|paguei|comprei)\s+""")
+    private val recebi = Regex("""(?i)^(?:eu\s+)?(?:recebi|ganhei)\s+""")
+
+    fun normalizar(texto: String): String {
+        var s = texto.trim()
+        s = centimos.replace(s) { it.groupValues[1] + "," + it.groupValues[2].padStart(2, '0') }
+        s = virgula.replace(s) { it.groupValues[1] + "," + it.groupValues[2] }
+        if (recebi.containsMatchIn(s)) s = "+" + recebi.replace(s, "")
+        s = gastei.replace(s, "")
+        return s
+    }
+
+    private val ligacaoInicio = Regex("""(?i)^(?:de|do|da|dos|das|no|na|nos|nas|em|com|pra|para)\s+""")
+    private val ligacaoFim = Regex("""(?i)\s+(?:de|do|da|por|no|na|em|com)$""")
+
+    /** Tira as palavras de ligação que sobram na descrição ("de café" → "café"). */
+    fun limparDescricao(d: String): String = ligacaoFim.replace(ligacaoInicio.replace(d.trim(), ""), "").trim()
+}
+
 /** Entende "5,50 café", "mercado 45,90", "1.250,00 renda" e "+1090 salário" (o + indica entrada). */
 object Interpretador {
     private val numero = Regex("""\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)""")
     private val milhar = Regex("""\d{1,3}(?:\.\d{3})+""")
     private val simbolos = Regex("""(?i)r\$|€|\beuros?\b|\beur\b|\breais\b""")
+    private val moedaDepois = Regex("""^\s*(?:€|(?i:euros?|eur|reais)\b)""")
 
     fun paraNumero(s: String): Double? {
         var x = s.trim().replace(simbolos, "").trim()
@@ -462,13 +489,18 @@ object Interpretador {
     }
 
     fun interpretar(texto: String, forcarReceita: Boolean = false): Gasto? {
-        var t = texto.trim()
+        var t = Fala.normalizar(texto)
         var receita = forcarReceita
         if (t.startsWith("+")) { receita = true; t = t.substring(1).trim() }
-        val m = numero.find(t) ?: return null
+        val todos = numero.findAll(t).toList()
+        if (todos.isEmpty()) return null
+        // "2 cafés 3 euros": vale o número colado à moeda
+        val m = todos.firstOrNull { moedaDepois.containsMatchIn(t.substring(it.range.last + 1)) }
+            ?: todos.firstOrNull { t.substring(0, it.range.first).trimEnd().endsWith("R$", true) }
+            ?: todos.first()
         val valor = paraNumero(m.value) ?: return null
         if (valor <= 0) return null
-        val desc = t.removeRange(m.range).replace(simbolos, "").replace(Regex("\\s+"), " ").trim()
+        val desc = Fala.limparDescricao(t.removeRange(m.range).replace(simbolos, "").replace(Regex("\\s+"), " "))
             .ifEmpty { if (receita) "Entrada" else "Sem descrição" }
         Categorias.escrita(desc, receita)?.let { (cat, resto) -> return Gasto(System.currentTimeMillis(), valor, resto, cat, receita, true) }
         return Gasto(System.currentTimeMillis(), valor, desc, Categorias.detectar(desc, receita), receita)
