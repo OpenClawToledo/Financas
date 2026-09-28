@@ -431,12 +431,21 @@ object Datas {
 
 /** Números do mês para a notificação (considera tudo o que esta pessoa vê). */
 object Previsao {
-    data class Resultado(val jaGasto: Double, val receitas: Double, val livre: Double)
+    data class Resultado(val jaGasto: Double, val receitas: Double, val livre: Double, val emCaixa: Double, val saiuHoje: Double)
 
     fun doMes(ctx: Context): Resultado {
-        val jaGasto = Armazem.totalDoMes(ctx)
-        val receitas = Armazem.receitasDoMes(ctx)
-        return Resultado(jaGasto, receitas, receitas - jaGasto)
+        val agora = System.currentTimeMillis()
+        val todos = Armazem.lancamentos(ctx).filter { it.q <= agora }
+        val iniMes = Datas.inicioDoMes()
+        val iniDia = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val jaGasto = todos.filter { !it.receita && it.q >= iniMes }.sumOf { it.v }
+        val receitas = todos.filter { it.receita && it.q >= iniMes }.sumOf { it.v }
+        // em caixa = tudo o que entrou menos tudo o que saiu, desde o primeiro lançamento
+        val emCaixa = todos.sumOf { if (it.receita) it.v else -it.v }
+        val saiuHoje = todos.filter { !it.receita && it.q >= iniDia }.sumOf { it.v }
+        return Resultado(jaGasto, receitas, receitas - jaGasto, emCaixa, saiuHoje)
     }
 
     /** Contas a pagar ainda em aberto neste mês, com dias até o vencimento (negativo = atrasada). */

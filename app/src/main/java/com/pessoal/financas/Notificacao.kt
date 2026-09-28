@@ -82,13 +82,15 @@ object Notificacao {
     fun construir(ctx: Context, mensagem: String? = null): Notification {
         criarCanais(ctx)
         val p = Previsao.doMes(ctx)
-        val titulo = if (p.receitas > 0) "Livre: ${Formato.moeda(p.livre)} · Saiu ${Formato.moeda(p.jaGasto)}"
-        else "Este mês: ${Formato.moeda(p.jaGasto)}"
+        val titulo = "Em caixa ${Formato.moeda(p.emCaixa)} · Hoje saiu ${Formato.moeda(p.saiuHoje)}"
 
         val equiv = Formato.equivalencia(ctx, p.jaGasto)
+        // o que antes estava no título continua na notificação
+        val linhaMes = "Este mês: saiu ${Formato.moeda(p.jaGasto)}" + if (p.receitas > 0) " · livre ${Formato.moeda(p.livre)}" else ""
         val proxima = Previsao.proximasContas(ctx).firstOrNull()
         val linhaConta = proxima?.let { (c, d) -> "Próxima: ${c.nome} ${Formato.moeda(c.valor)}, ${Formato.prazo(d)}" }
         val padrao = listOfNotNull(
+            linhaMes,
             if (equiv.isNotEmpty()) "= $equiv" else null,
             linhaConta,
             if (Ajustes.agitarAtivo(ctx)) "Agite o celular para lançar de qualquer lugar" else null
