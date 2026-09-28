@@ -11,7 +11,7 @@ object Tela {
     @SuppressLint("SetJavaScriptEnabled")
     fun criar(act: Activity, host: Hospedeiro, url: String, transparente: Boolean, aoCarregar: (WebView) -> Unit = {}): WebView =
         WebView(act).apply {
-            setBackgroundColor(if (transparente) Color.TRANSPARENT else Color.parseColor("#15131F"))
+            setBackgroundColor(if (transparente) Color.TRANSPARENT else Color.parseColor("#0B1210"))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true

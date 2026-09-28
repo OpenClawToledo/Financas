@@ -6,8 +6,9 @@
 <title>Finanças</title>
 <style>
 :root{
-  --ink:#15131F; --surface:#201D2C; --surface2:#2A2639; --line:#353047;
-  --text:#F3EEF8; --muted:#A59FB8; --mango:#FFB547; --heart:#FF5E7E; --violet:#9B8CFF; --ok:#4CD6A0; --late:#FF6B5B;
+  --ink:#0B1210; --surface:#141D19; --surface2:#1C2823; --line:#28362F;
+  --text:#EEF5F1; --muted:#9AADA4; --mango:#FFB547; --heart:#FF5E7E; --violet:#9B8CFF; --ok:#34D399; --late:#FF6B5E;
+  --marca:#2FBF84; --marca-tx:#03241A;
   --serif:"Noto Serif","Roboto Serif",Georgia,serif;
   --sans:Roboto,"Google Sans",system-ui,sans-serif;
 }
@@ -19,7 +20,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--violet);outline
 main{padding:0 0 110px}
 .topo{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;background:linear-gradient(var(--ink) 75%,transparent)}
 .topo h1{margin:0;font-family:var(--serif);font-size:1.55rem;font-weight:700;letter-spacing:-.01em}
-.mini-av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--surface2);border:2px solid var(--mango)}
+.mini-av{position:relative;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--surface2);border:2px solid var(--marca)}
 .pos{color:var(--ok)} .neg{color:var(--late)}
 
 /* ---------- Gráfico do mês (3 visões) ---------- */
@@ -49,15 +50,29 @@ main{padding:0 0 110px}
 .graf-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 
 /* ---------- Herói do mês ---------- */
-.heroi{margin:4px 18px 16px;padding:20px 20px 18px;border-radius:26px;background:var(--surface);position:relative;overflow:hidden}
-.heroi::after{content:"";position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(255,181,71,.2),transparent 70%);pointer-events:none}
+.heroi{margin:4px 18px 16px;padding:20px 20px 18px;border-radius:26px;background:var(--surface);position:relative;overflow:hidden;isolation:isolate;
+  box-shadow:0 14px 40px -22px rgba(47,191,132,.45)}
+/* Luz que circula devagar pela borda (uma volta a cada 26 s) com um brilho suave que a acompanha */
+@property --ang{syntax:"<angle>";initial-value:45deg;inherits:false}
+@property --gx{syntax:"<percentage>";initial-value:100%;inherits:false}
+@property --gy{syntax:"<percentage>";initial-value:0%;inherits:false}
+.heroi::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:conic-gradient(from calc(var(--ang) - 40deg),transparent 0deg,rgba(52,211,153,.85) 34deg,rgba(236,255,246,.75) 40deg,rgba(52,211,153,.85) 46deg,transparent 80deg,transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  animation:luzBorda 26s linear infinite}
+.heroi::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(240px circle at var(--gx) var(--gy),rgba(52,211,153,.16),transparent 70%);
+  animation:luzBrilho 26s linear infinite}
+@keyframes luzBorda{to{--ang:405deg}}
+@keyframes luzBrilho{0%{--gx:100%;--gy:0%}25%{--gx:100%;--gy:100%}50%{--gx:0%;--gy:100%}75%{--gx:0%;--gy:0%}100%{--gx:100%;--gy:0%}}
+.heroi.parado::before,.heroi.parado::after{animation-play-state:paused}
 .heroi .mes{color:var(--muted);font-size:.95rem}
 .duas{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:6px 0 4px}
 .duas > div:last-child{text-align:right}
 .duas small{display:block;color:var(--muted);font-size:.82rem}
 .big{font-family:var(--serif);font-size:2.35rem;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
 .med{font-family:var(--serif);font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums}
-.trilho{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden;margin:14px 0 8px}
+.trilho{display:flex;height:10px;border-radius:6px;background:var(--surface2);overflow:hidden;margin:14px 0 8px}
 .trilho i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--mango),#FF8A5B);transition:width .9s cubic-bezier(.2,.8,.2,1)}
 .fluxo{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--surface2);margin:14px 0 6px}
 .fluxo i{display:block;height:100%;transition:width .9s cubic-bezier(.2,.8,.2,1);width:0}
@@ -69,20 +84,6 @@ main{padding:0 0 110px}
 .eq{display:flex;flex-direction:column;gap:1px;margin-top:8px;font-size:.88rem;color:var(--muted)}
 .dica-btn{margin-top:12px;padding:10px 14px;border-radius:14px;background:var(--surface2);font-size:.9rem;text-align:left;width:100%}
 
-/* ---------- Stories de contas ---------- */
-.stories{display:flex;gap:14px;overflow-x:auto;padding:2px 18px 16px;scrollbar-width:none}
-.stories::-webkit-scrollbar{display:none}
-.story{flex:0 0 auto;width:70px;text-align:center}
-.story .anel{width:64px;height:64px;margin:0 auto 6px;border-radius:50%;padding:3px;background:var(--violet)}
-.story.perto .anel{background:conic-gradient(var(--mango),#FF8A5B,var(--mango))}
-.story.atrasada .anel{background:var(--late)}
-.story.entrada .anel{background:var(--ok)}
-.story.paga .anel{background:var(--line)}
-.story .bola{width:100%;height:100%;border-radius:50%;background:var(--surface);border:3px solid var(--ink);display:grid;place-items:center;font-weight:700;font-size:1.3rem}
-.story.paga .bola{opacity:.5}
-.story small{display:block;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.story b{display:block;font-size:.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
 .insight{margin:0 18px 16px;padding:14px 16px;border-radius:18px;border:1px dashed var(--line);color:var(--muted);font-size:.93rem}
 .insight strong{color:var(--text);font-weight:600}
 .dia{margin:22px 18px 10px;font-size:.85rem;color:var(--muted);font-weight:500}
@@ -90,7 +91,19 @@ main{padding:0 0 110px}
 /* ---------- Posts ---------- */
 .post{position:relative;margin:0 12px 12px;border-radius:22px;overflow:hidden;background:var(--late)}
 .fundo-apagar{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:26px;font-weight:600;color:#fff}
-.post .corpo{position:relative;background:var(--surface);padding:14px 16px 10px;touch-action:pan-y;transition:transform .25s ease}
+.post .corpo{position:relative;background:var(--surface);padding:14px 16px 10px;touch-action:pan-y;transition:transform .25s ease,box-shadow .2s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.post .corpo.segurando{transform:scale(.985);box-shadow:inset 0 0 0 2px rgba(52,211,153,.5)}
+.post .corpo.editando{touch-action:auto;-webkit-user-select:text;user-select:text;box-shadow:inset 0 0 0 2px var(--marca)}
+.ed-topo{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ed-topo .seg{flex:1;margin:0}
+.ed-valor{width:100%;padding:6px 0;border:0;border-bottom:1px dashed var(--line);background:transparent;font-family:var(--serif);font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums}
+.ed-desc,.ed-data{width:100%;margin-top:8px;padding:8px 0;border:0;border-bottom:1px dashed var(--line);background:transparent;font-size:1rem}
+.ed-data{color:var(--muted);font-size:.9rem;color-scheme:dark}
+.corpo.editando .chave{width:100%;margin:10px 0 0;background:var(--ink)}
+.ed-acoes{display:flex;gap:8px;margin-top:12px}
+.ed-acoes button{flex:1;padding:10px 6px;border-radius:14px;background:var(--surface2);font-size:.9rem}
+.ed-acoes .ok{background:var(--marca);color:var(--marca-tx);font-weight:700}
+.ed-acoes .del{color:var(--late)}
 .post.novo .corpo{animation:chegou 1.2s ease}
 @keyframes chegou{0%{box-shadow:inset 0 0 0 2px var(--mango)}100%{box-shadow:inset 0 0 0 2px transparent}}
 .post header{display:flex;align-items:center;gap:10px}
@@ -102,8 +115,6 @@ main{padding:0 0 110px}
 .post .valor{font-family:var(--serif);font-size:1.9rem;font-weight:700;margin:12px 0 0;font-variant-numeric:tabular-nums}
 .post .desc{margin:2px 0 0;font-size:1rem;overflow-wrap:anywhere}
 .post footer{display:flex;gap:20px;margin-top:12px;padding-top:8px;border-top:1px solid var(--line)}
-.post.troca .corpo{background:linear-gradient(135deg,rgba(76,214,160,.14),transparent 60%),var(--surface)}
-.post.troca .destino{margin:4px 0 0;font-size:.95rem}
 .acao{display:flex;align-items:center;gap:6px;padding:6px 2px;color:var(--muted);font-size:.9rem}
 .acao svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2}
 .acao.curtido{color:var(--heart)}
@@ -111,6 +122,11 @@ main{padding:0 0 110px}
 @keyframes pulo{50%{transform:scale(1.35)}}
 .ultimo-com{margin:6px 0 2px;font-size:.88rem;color:var(--muted);overflow-wrap:anywhere}
 .ultimo-com b{color:var(--text);font-weight:600}
+.ultimo-com.digitando .tx::after{content:"";display:inline-block;width:2px;height:1em;margin-left:1px;vertical-align:-2px;background:var(--marca);animation:cursor .7s steps(1) infinite}
+@keyframes cursor{50%{opacity:0}}
+.ultimo-com.postou{animation:postou .45s ease}
+@keyframes postou{0%{transform:translateX(-4px);opacity:.6}100%{transform:none;opacity:1}}
+.acao.curtido.ao-ver svg{animation:pulo .5s ease .1s}
 .coracao-grande{position:absolute;left:50%;top:50%;width:90px;height:90px;margin:-45px 0 0 -45px;fill:var(--heart);pointer-events:none;animation:estouro .8s ease forwards}
 @keyframes estouro{0%{transform:scale(0);opacity:0}25%{transform:scale(1.15);opacity:1}60%{transform:scale(1);opacity:1}100%{transform:scale(1.3);opacity:0}}
 .mais{display:block;margin:10px auto;padding:10px 18px;border-radius:20px;background:var(--surface);color:var(--muted)}
@@ -148,7 +164,7 @@ main{padding:0 0 110px}
 /* ---------- Listas e botões ---------- */
 .secao{margin:0 18px 16px}
 .h3{margin:22px 18px 10px;font-family:var(--serif);font-size:1.2rem}
-.btn{display:block;width:calc(100% - 36px);margin:14px 18px;padding:15px;border-radius:16px;background:var(--mango);color:#231A05;font-weight:700;text-align:center}
+.btn{display:block;width:calc(100% - 36px);margin:14px 18px;padding:15px;border-radius:16px;background:var(--marca);color:var(--marca-tx);font-weight:700;text-align:center}
 .btn.sec{background:var(--surface2);color:var(--text);font-weight:500}
 .btn.mini{display:inline-block;width:auto;margin:0;padding:10px 14px;font-size:.9rem}
 .linha-botoes{display:flex;gap:10px;margin:0 18px 12px}
@@ -162,8 +178,13 @@ main{padding:0 0 110px}
 .cartao .top b{display:block;font-weight:600}
 .cartao .top small{color:var(--muted)}
 .cartao .pct{font-family:var(--serif);font-weight:700;font-size:1.3rem}
-.cartao .trilho i{background:linear-gradient(90deg,var(--violet),var(--ok))}
+.cartao .trilho i{background:linear-gradient(90deg,var(--marca),var(--ok))}
 .cartao.amortizar .trilho i{background:linear-gradient(90deg,var(--mango),var(--ok))}
+.cartao .trilho i.tr{background:repeating-linear-gradient(135deg,#8FF0C6 0 6px,#5EDBA8 6px 12px);border-radius:0 6px 6px 0}
+.cartao .trilho i:not(.tr){border-radius:6px 0 0 6px}
+.leg-meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin:-2px 0 10px;font-size:.8rem;color:var(--muted)}
+.leg-meta i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--marca)}
+.leg-meta i.tr{background:#8FF0C6}
 .cartao .acoes{display:flex;gap:10px}
 .cartao .acoes button{flex:1;padding:10px;border-radius:14px;background:var(--surface2)}
 .cartao.feita{box-shadow:inset 0 0 0 2px var(--ok)}
@@ -175,7 +196,7 @@ main{padding:0 0 110px}
 
 .contas-lista .item{display:flex;align-items:center;gap:12px;margin:0 18px 8px;padding:12px 14px;border-radius:16px;background:var(--ink)}
 .check{width:30px;height:30px;flex:0 0 30px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;transition:all .25s}
-.check svg{width:16px;height:16px;stroke:#15131F;stroke-width:3;fill:none;opacity:0;transform:scale(.4);transition:all .25s}
+.check svg{width:16px;height:16px;stroke:var(--ink);stroke-width:3;fill:none;opacity:0;transform:scale(.4);transition:all .25s}
 .paga .check{background:var(--ok);border-color:var(--ok)}
 .paga .check svg{opacity:1;transform:none}
 .contas-lista .info{flex:1;min-width:0}
@@ -189,7 +210,12 @@ main{padding:0 0 110px}
 .menu-grupo{margin:0 18px 8px;border-radius:20px;background:var(--surface);overflow:hidden}
 .menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;text-align:left;border-bottom:1px solid var(--line)}
 .menu-item:last-child{border-bottom:0}
-.mi-ic{width:34px;height:34px;border-radius:11px;background:var(--surface2);display:grid;place-items:center;font-size:1.05rem;flex:none}
+.mi-ic{position:relative;width:34px;height:34px;border-radius:11px;background:var(--surface2);display:grid;place-items:center;font-size:1.05rem;flex:none}
+/* Ponto amarelo: indica onde tocar (atualização disponível, backup atrasado) */
+.com-ponto{position:relative}
+.com-ponto::after{content:"";position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--mango);border:2px solid var(--ink);animation:pontoPulso 2.4s ease-in-out infinite}
+nav button.com-ponto::after{top:6px;right:calc(50% - 18px)}
+@keyframes pontoPulso{0%,100%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}50%{box-shadow:0 0 0 6px rgba(255,181,71,0)}}
 .mi-tx{flex:1;min-width:0}
 .mi-tx b{display:block;font-weight:600;font-size:.95rem}
 .mi-tx small{display:block;color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -234,13 +260,13 @@ main{padding:0 0 110px}
 .on > .sw::after{transform:translateX(18px)}
 
 /* ---------- Navegação ---------- */
-nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-around;height:72px;padding:0 6px;background:rgba(21,19,31,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-around;height:72px;padding:0 6px;background:rgba(11,18,16,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line)}
 nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.7rem;color:var(--muted)}
 nav button svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2}
 nav button.ativo{color:var(--text)}
-nav .fab{flex:0 0 62px;height:62px;margin-top:-26px;border-radius:22px;background:var(--mango);color:#231A05;display:grid;place-items:center;box-shadow:0 8px 24px rgba(255,181,71,.35);transition:transform .15s}
+nav .fab{flex:0 0 62px;height:62px;margin-top:-26px;border-radius:22px;background:var(--marca);color:var(--marca-tx);display:grid;place-items:center;box-shadow:0 8px 24px rgba(47,191,132,.38);transition:transform .15s}
 nav .fab:active{transform:scale(.92)}
-nav .fab svg{width:30px;height:30px;stroke:#231A05;stroke-width:2.6}
+nav .fab svg{width:30px;height:30px;stroke:var(--marca-tx);stroke-width:2.6}
 
 /* ---------- Folha inferior ---------- */
 .veu{position:fixed;inset:0;z-index:20;background:rgba(5,4,10,.55);opacity:0;transition:opacity .25s}
@@ -291,7 +317,7 @@ nav .fab svg{width:30px;height:30px;stroke:#231A05;stroke-width:2.6}
 .com small{color:var(--muted);font-size:.75rem}
 .enviar{display:flex;gap:8px;margin:0 18px}
 .enviar input{flex:1;padding:13px 14px;border-radius:22px;border:1px solid var(--line);background:var(--ink)}
-.enviar button{padding:0 18px;border-radius:22px;background:var(--mango);color:#231A05;font-weight:700}
+.enviar button{padding:0 18px;border-radius:22px;background:var(--marca);color:var(--marca-tx);font-weight:700}
 
 /* ---------- Avisos ---------- */
 .aviso{position:fixed;left:14px;right:14px;bottom:86px;z-index:30;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;background:var(--text);color:var(--ink);transform:translateY(calc(100% + 140px));opacity:0;visibility:hidden;pointer-events:none;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .25s,visibility 0s .3s}
@@ -332,7 +358,7 @@ textarea.campo-grande{width:calc(100% - 36px);margin:0 18px 12px;min-height:90px
 body.entrada .topo, body.entrada nav{display:none}
 body.entrada main{padding:48px 0 40px}
 .boas-vindas{text-align:center;padding:0 24px 22px}
-.boas-vindas .logo{width:74px;height:74px;margin:0 auto 16px;border-radius:24px;background:var(--mango);color:#231A05;display:grid;place-items:center;font-family:var(--serif);font-size:2.4rem;font-weight:700}
+.boas-vindas .logo{width:74px;height:74px;margin:0 auto 16px;border-radius:24px;background:var(--marca);color:var(--marca-tx);display:grid;place-items:center;font-family:var(--serif);font-size:2.4rem;font-weight:700}
 .boas-vindas h1{margin:0;font-family:var(--serif);font-size:2.1rem}
 .boas-vindas p{margin:8px auto 0;max-width:300px;color:var(--muted)}
 .link{display:block;margin:4px auto;padding:10px;color:var(--violet);font-weight:500}
@@ -342,7 +368,7 @@ body.entrada main{padding:48px 0 40px}
 .linha-campos .campo{margin:0;flex:1;min-width:0}
 .grupo{margin:14px 18px 6px;font-size:.8rem;color:var(--muted);font-weight:500}
 
-.banner-atu{display:flex;align-items:center;gap:12px;margin:0 18px 14px;padding:12px 14px;border-radius:18px;background:rgba(155,140,255,.14);color:var(--text);font-size:.9rem}
+.banner-atu{display:flex;align-items:center;gap:12px;margin:0 18px 14px;padding:12px 14px;border-radius:18px;background:rgba(255,181,71,.12);color:var(--text);font-size:.9rem}
 .banner-atu span{flex:1}
 
 /* Modo rápido: só a folha de novo lançamento, por cima de qualquer app */
@@ -677,20 +703,31 @@ function aviso(texto, rotuloAcao, acao){
 }
 
 /* ---------- Gestos: deslizar para apagar, toque e toque duplo ---------- */
-function gestos(corpo, {aoApagar, aoToqueDuplo, aoToque}){
-  let x0 = 0, y0 = 0, dx = 0, arrastando = false, decidido = false, ativo = false, timer = null;
-  corpo.addEventListener("pointerdown", e => { x0 = e.clientX; y0 = e.clientY; dx = 0; arrastando = false; decidido = false; ativo = true; });
+function gestos(corpo, {aoApagar, aoToqueDuplo, aoToque, aoSegurar}){
+  let x0 = 0, y0 = 0, dx = 0, arrastando = false, decidido = false, ativo = false, timer = null, tSegurar = null, tMarca = null, segurou = false;
+  const soltar = () => { clearTimeout(tSegurar); clearTimeout(tMarca); corpo.classList.remove("segurando"); };
+  if (aoSegurar) corpo.addEventListener("contextmenu", e => { if (!corpo.classList.contains("editando")) e.preventDefault(); });
+  corpo.addEventListener("pointerdown", e => {
+    if (corpo.classList.contains("editando")) return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; arrastando = false; decidido = false; ativo = true; segurou = false;
+    if (aoSegurar && !e.target.closest("button")){
+      tMarca = setTimeout(() => { corpo.classList.add("segurando"); }, 180);
+      tSegurar = setTimeout(() => { soltar(); if (!ativo || decidido) return; segurou = true; ativo = false; vibrar(); aoSegurar(e); }, 480);
+    }
+  });
   corpo.addEventListener("pointermove", e => {
     if (!ativo) return;
     const mx = e.clientX - x0, my = e.clientY - y0;
     if (!decidido && (Math.abs(mx) > 10 || Math.abs(my) > 10)){
+      soltar();
       decidido = true; arrastando = Math.abs(mx) > Math.abs(my) && mx < 0 && !!aoApagar;
       if (arrastando) corpo.style.transition = "none";
     }
     if (arrastando){ dx = Math.min(0, mx); corpo.style.transform = "translateX("+dx+"px)"; }
   });
   const fim = e => {
-    if (!ativo) return; ativo = false;
+    soltar();
+    if (!ativo || segurou) return; ativo = false;
     corpo.style.transition = "";
     if (arrastando){
       if (dx < -110){ corpo.style.transform = "translateX(-110%)"; vibrar(); setTimeout(aoApagar, 200); }
@@ -749,6 +786,7 @@ function ir(nova){
 window.voltar = function(){
   if (tutorialAtivo){ if (tIdx > 0){ tIdx--; focarPasso(); } return true; }   // o tutorial não se fecha pelo botão voltar
   if (folhaAberta){ fecharFolha(); return true; }
+  if ($(".corpo.editando")){ render(false); return true; }
   if (aba === "perfil" && perfilPag){ perfilPag = null; render(false); return true; }
   if (aba !== "feed"){ ir("feed"); return true; }
   return false;
@@ -758,7 +796,7 @@ window.recarregar = function(){
   carregar();
   if (!S.nuvem.logado && document.body.classList.contains("entrada")) return;   // não apaga o que está sendo digitado
   // não redesenha por baixo de uma folha aberta (a pessoa pode estar a escrever)
-  if (!folhaAberta){ const y = window.scrollY; render(false); window.scrollTo(0, y); }
+  if (!folhaAberta && !$(".corpo.editando")){ const y = window.scrollY; render(false); window.scrollTo(0, y); }
   verificarConquistas();
 };
 
@@ -774,13 +812,16 @@ function render(animar){
   $("#miniAv").textContent = (S.eu.nome || "E").trim().charAt(0).toUpperCase();
   $("#titulo").textContent = {feed:"Finanças", trocas:"Trocas", perfil:"Perfil"}[aba];
   tela.innerHTML = aba === "feed" ? telaFeed() : aba === "trocas" ? telaTrocas() : telaPerfil();
+  const avisar = !!(S.atualizacao || {}).disponivel || backupAtrasado();
+  $('nav [data-aba="perfil"]').classList.toggle("com-ponto", avisar && !(aba === "perfil" && !perfilPag));
+  $("#miniAv").classList.toggle("com-ponto", avisar);
   ligar(animar);
   if (tutorialAtivo) setTimeout(focarPasso, 60);
   else if (precisaTutorial()) setTimeout(iniciarTutorial, 700);
 }
 
 /* ================= Tutorial da primeira abertura desta versão ================= */
-const TUTORIAL_V = "tutorial-1.9";
+const TUTORIAL_V = "tutorial-2.0";
 let tutorialAtivo = false, tPassos = [], tIdx = 0;
 function precisaTutorial(){ return !RAPIDO && S && S.nuvem.logado && !(S.conquistasVistas || []).includes(TUTORIAL_V); }
 function passosTutorial(){
@@ -788,12 +829,12 @@ function passosTutorial(){
   P.push({t:"👋 Bem-vindo(a) ao Finanças", p:"Em um minuto mostramos o que cada área faz. Toque em Próximo para seguir.", d:"O tutorial aparece uma vez, a cada versão nova."});
   if (temCasal()) P.push({sel:".modos", t:"Eu · Nós · Total", p:"Troque de visão: só o que é seu, só o que é do casal, ou tudo junto.", d:"Um gasto marcado como “Nós” entra no acerto de contas 50/50."});
   P.push({sel:"#meses", t:"Meses", p:"Deslize para ver meses anteriores ou os próximos. Os tracejados são previsão: contas e entradas já programadas.", d:"Toque num mês para abrir o resumo dele."});
-  P.push({sel:".heroi", t:"Resumo do mês", p:"Quanto está livre agora, o que já está comprometido com contas e quanto deve sobrar no fim do mês.", d:"Registe o que entra (salário, extras) para o “livre” aparecer."});
+  P.push({sel:".heroi", t:"Resumo do mês", p:"Quanto está livre agora, o que já está comprometido com contas e quanto deve sobrar no fim do mês. As trocas não entram aqui.", d:"Registe o que entra (salário, extras) para o “livre” aparecer."});
   P.push({sel:"#graf", t:"Para onde vai", p:"Três gráficos: Categorias, Dia a dia e Mês a mês. Toque numa fatia, barra ou mês para ver o valor exato.", d:"Tocar de novo tira o destaque."});
   P.push({sel:".controles", t:"Buscar e filtrar", p:"Procure por descrição ou categoria, filtre saídas e entradas, e veja em cartões ou em lista.", d:"Na lista dá para ordenar por data, valor ou categoria."});
-  P.push({sel:".post[data-id]", t:"Cada lançamento", p:"Toque para editar, duplicar ou comentar. Toque duas vezes para curtir. Deslize para a esquerda para apagar.", d:"Tocar na categoria do cartão troca a categoria."});
+  P.push({sel:".post[data-id]", t:"Cada lançamento", p:"Segure o cartão para editar tudo ali mesmo: valor, descrição, data e categoria. Toque duas vezes para curtir. Deslize para a esquerda para apagar.", d:"Comentários novos aparecem sendo escritos quando você rola até eles."});
   P.push({sel:"#fab", t:"Botão +", p:"Lance em segundos: valor e descrição, como “5,50 café”. A categoria sai sozinha, ou escreva-a no fim.", d:"Na mesma folha: 🎤 falar, 📄 ler fatura, outra data e contas que se repetem."});
-  P.push({sel:'nav [data-aba="trocas"]', t:"Trocas", p:"Registe o que evitou, como um maço de cigarro, e mande o valor para um objetivo ou para abater uma dívida.", d:"As referências (“x cafés”, horas de trabalho) também ficam aqui."});
+  P.push({sel:'nav [data-aba="trocas"]', t:"Trocas", p:"Registe o que evitou, como um maço de cigarro, e mande o valor para um objetivo ou para abater uma dívida.", d:"O valor evitado não entra nos totais: aparece só, listrado, na barra do destino."});
   P.push({sel:'nav [data-aba="perfil"]', t:"Perfil", p:"A sua conta, o casal, métricas e conquistas, e as configurações do app.", d:""});
   P.push(IOS
     ? {t:"⚡ Sem abrir o app", p:"Diga “Lançar gasto no Finanças” à Siri, ou use o toque traseiro e o Botão de Ação.", d:""}
@@ -884,24 +925,12 @@ function heroiAtual(){
     if (Math.abs(dif) >= 1) h += '<div class="linha-info">Até dia '+S.hoje+': <b class="'+(dif > 0 ? "neg" : "pos")+'">'+din(Math.abs(dif))+' '+(dif > 0 ? "a mais" : "a menos")+'</b> que em '+n.nomeAnt
       + (equivTexto(Math.abs(dif)) ? ' ('+esc(equivTexto(Math.abs(dif)))+')' : '') + '</div>';
   }
-  if (n.trocasMes.length) h += '<div class="linha-info">🔁 '+n.trocasMes.length+' troca'+(n.trocasMes.length > 1 ? "s" : "")+' este mês: <b class="pos">'+din(n.trocado)+'</b> redirecionados</div>';
   if (temCasal() && modo !== "eu" && (n.pagoEu || n.pagoPar)){
     const p = S.parceiro.nome;
     const quem = Math.abs(n.acerto) < 0.5 ? "Vocês estão quites" : n.acerto > 0 ? '<b>'+esc(p)+'</b> te deve <b>'+din(n.acerto)+'</b>' : 'Você deve <b>'+din(-n.acerto)+'</b> a <b>'+esc(p)+'</b>';
     h += '<div class="acerto">'+bolinha(S.eu.id)+' pagou '+din(n.pagoEu)+' &nbsp; '+bolinha(S.parceiro.id)+' pagou '+din(n.pagoPar)+'<br>'+quem+' (divisão 50/50 do que é “Nós”)</div>';
   }
   h += '</section>';
-  return h;
-}
-function storiesAtual(){
-  const contas = S.contasMes.slice().sort((a,b) => (a.paga-b.paga) || (a.diasAte-b.diasAte));
-  let h = '<div class="stories">';
-  contas.forEach(c => {
-    const classe = c.paga ? "paga" : c.e ? "entrada" : c.diasAte < 0 ? "atrasada" : c.diasAte <= 3 ? "perto" : "";
-    h += '<button class="story '+classe+'" data-conta="'+c.id+'"><div class="anel"><div class="bola">'+esc(c.n.charAt(0).toUpperCase())+'</div></div>'
-      + '<b>'+esc(c.n)+'</b><small>'+(c.paga ? (c.e ? "recebida" : "paga") : (c.e ? "entra " : "")+prazo(c.diasAte))+(c.vezes > 1 ? " · "+c.parcela+"/"+c.vezes : "")+'</small></button>';
-  });
-  h += '<button class="story" data-contas><div class="anel" style="background:var(--line)"><div class="bola">☰</div></div><b>Contas</b><small>e dívidas</small></button></div>';
   return h;
 }
 function insightAtual(){
@@ -952,8 +981,8 @@ function cartoesMes(){
   const prev = projetadas(ano, mes).filter(passaFiltro).sort((a,b) => a.q - b.q);
   let h = prev.length ? '<div class="dia">Por acontecer</div>' + prev.map(linhaExtrato).join("") : "";
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
+  // trocas não entram no feed nem nos totais: só aparecem na barra do destino
   const itens = S.vis.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
-    .concat(semFiltro ? S.trocasVis.filter(t => noMes(t.q, ano, mes)).map(t => ({k:"t", q:t.q, t})) : [])
     .sort((a,b) => b.q - a.q);
   if (!itens.length && !prev.length){
     if (!semFiltro) return '<div class="vazio">Nada encontrado com esses filtros.</div>';
@@ -965,7 +994,7 @@ function cartoesMes(){
   itens.slice(0, limitePosts).forEach(it => {
     const k = chaveDia(it.q);
     if (k !== diaAtual){ diaAtual = k; h += '<div class="dia">'+rotuloDia(it.q)+'</div>'; }
-    h += it.k === "g" ? post(it.g) : postTroca(it.t);
+    h += post(it.g);
   });
   if (itens.length > limitePosts) h += '<button class="mais" id="verMais">Ver anteriores</button>';
   return h;
@@ -1126,21 +1155,13 @@ function post(g){
     + (r ? "" : equivalencia(g.v))
     + '<footer><button class="acao'+(g.l ? " curtido" : "")+'" data-curtir aria-label="Curtir">'+ICON.coracao+'<span>'+(g.lc || "")+'</span></button>'
     + '<button class="acao" data-comentar aria-label="Comentar">'+ICON.balao+'<span>'+(g.cm.length || "")+'</span></button></footer>'
-    + (ult ? '<p class="ultimo-com"><b>'+esc(ult.a)+'</b> '+esc(ult.t)+'</p>' : '')
+    + (ult ? '<p class="ultimo-com" data-com="'+esc(g.id+":"+g.cm.length)+'"><b>'+esc(ult.a)+'</b> <span class="tx">'+esc(ult.t)+'</span></p>' : '')
     + '</div></article>';
 }
 function destinoTexto(mId){
   const m = S.metas.find(x => x.id === mId);
   if (!m) return "guardado";
   return (m.tipo === "a" ? "abatido em " : "para ") + esc(m.e) + " " + esc(m.n);
-}
-function postTroca(t){
-  return '<article class="post troca" data-troca="'+t.id+'"><div class="fundo-apagar">Apagar</div><div class="corpo">'
-    + '<header><span class="av" style="--c:#4CD6A0">'+esc(t.e)+'</span><div class="quem"><b>Evitou '+esc(t.n)+'</b><small>'+haQuanto(t.q)+' · só você vê</small></div>'
-    + '<span class="tag" style="--c:#4CD6A0">Troca</span></header>'
-    + '<div class="valor pos">+'+din(t.v)+'</div><p class="destino">→ '+destinoTexto(t.m)+'</p>'
-    + equivalencia(t.v, t.r)
-    + '</div></article>';
 }
 
 /* ================= Extrato ================= */
@@ -1181,12 +1202,9 @@ function listaExtrato(todos){
 /* ================= Trocas e destinos ================= */
 function telaTrocas(){
   const mesT = S.trocas.filter(t => noMes(t.q, MES_ATUAL.ano, MES_ATUAL.mes));
-  const trocadoMes = mesT.reduce((a,t) => a+t.v, 0);
-  const total = S.trocas.reduce((a,t) => a+t.v, 0);
-  let h = '<p class="nota">Deixou de comprar algo? Registre a troca e o valor vai para um destino: juntar para um curso ou viagem, ou abater um imprevisto.'
+  let h = '<p class="nota">Deixou de comprar algo? Registre a troca e o valor vai para um destino: juntar para um curso ou viagem, ou abater um imprevisto. '
+    + 'O valor evitado não entra nos totais do mês: aparece só na barra do destino.'
     + (temCasal() ? ' As trocas são só suas; num destino do casal, só aparece o valor guardado.' : '') + '</p>';
-  h += '<div class="resumo"><div class="duas"><div><small>Redirecionado este mês</small><div class="med pos">'+din(trocadoMes)+'</div></div>'
-    + '<div><small>Desde o início</small><div class="med">'+din(total)+'</div></div></div>'+equivalencia(trocadoMes)+'</div>';
 
   const evitar = S.refs.filter(r => r.evitar);
   h += '<h3 class="h3">O que quero evitar</h3>';
@@ -1195,7 +1213,6 @@ function telaTrocas(){
     const doMes = mesT.filter(t => t.r === r.id);
     h += '<div class="cartao"><div class="top" data-editar-ref="'+r.id+'"><span class="emo">'+esc(r.e)+'</span><div><b>'+esc(r.n)+'</b><small>'+din(r.v)+' → '+destinoTexto(r.m)+'</small></div>'
       + '<span class="pct">'+doMes.length+'×</span></div>'
-      + (doMes.length ? '<div class="linha-info">Este mês: <b class="pos">'+din(doMes.reduce((a,t) => a+t.v, 0))+'</b></div>' : '')
       + '<button class="evitar-btn" data-evitei="'+r.id+'">Evitei agora</button></div>';
   });
   h += '<button class="btn sec" data-nova-ref="evitar">Adicionar algo a evitar</button>';
@@ -1206,9 +1223,13 @@ function telaTrocas(){
     const f = Math.min(1, m.atual / m.alvo);
     const falta = Math.max(0, m.alvo - m.atual);
     const amort = m.tipo === "a";
+    // parte que veio das minhas trocas (listrada na barra); o resto é dinheiro guardado
+    const viaTrocas = Math.min(m.atual, S.trocas.filter(t => t.m === m.id).reduce((a,t) => a + t.v, 0));
+    const fTr = Math.min(f, viaTrocas / m.alvo), fReal = f - fTr;
     h += '<div class="cartao'+(amort ? " amortizar" : "")+(f >= 1 ? " feita" : "")+'" data-meta="'+m.id+'"><div class="top"><span class="emo">'+esc(m.e)+'</span>'
       + '<div><b>'+esc(m.n)+'<span class="tipo-tag">'+(amort ? "Amortizar" : "Juntar")+'</span>'+(m.sh ? '<span class="nos-tag">Nós</span>' : '')+'</b><small>'+(amort ? "Pago " : "")+din(m.atual)+' de '+din(m.alvo)+'</small></div><span class="pct">'+Math.round(f*100)+'%</span></div>'
-      + '<div class="trilho"><i data-f="'+f+'"></i></div>'
+      + '<div class="trilho"><i data-f="'+fReal+'"></i><i class="tr" data-f="'+fTr+'"></i></div>'
+      + (viaTrocas > 0 ? '<div class="leg-meta"><span><i></i>'+(amort ? "Pago" : "Guardado")+' '+din(m.atual - viaTrocas)+'</span><span><i class="tr"></i>Trocas '+din(viaTrocas)+'</span></div>' : '')
       + '<p class="nota" style="margin:0 0 12px">'+(f >= 1 ? (amort ? "Quitado." : "Meta concluída.") : "Faltam "+din(falta)+(amort ? " para quitar" : "")+(equivTexto(falta) ? ", ou "+esc(equivTexto(falta)) : "")+".")+'</p>'
       + '<div class="acoes"><button data-guardar>'+(amort ? "Pagar parte" : "Guardar")+'</button>'+(meu(m) ? '<button data-apagar-meta>Excluir</button>' : '')+'</div></div>';
   });
@@ -1324,12 +1345,12 @@ function pagAtualizacoes(){
     + (a.disponivel ? '<br>Disponível: <b>'+esc(a.versao)+'</b>' : a.verificadoMs ? '<br>Verificado '+haQuanto(a.verificadoMs) : '')
     + (a.erro ? '<div class="erro" style="color:var(--muted)">'+esc(a.erro)+'</div>' : '') + '</div>'
     + (IOS ? '<p class="nota">No iPhone, as versões novas chegam pelo SideStore: quando aparecer o aviso, abra o SideStore e toque em Atualizar.</p>' : '')
-    + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn" data-atualizar>Atualizar agora</button>' : '')+'</div>'
+    + '<div class="linha-botoes"><button class="btn sec" id="procAtu">Procurar atualização</button>'+(a.disponivel ? '<button class="btn com-ponto" data-atualizar>Atualizar agora</button>' : '')+'</div>'
     + (IOS ? '' : chave("swAutoAtu", "Atualizar automaticamente", "Ao abrir o app, instala a versão nova sozinho", a.automatico));
 }
 function pagDados(){
   return '<div class="rotulo">Backup</div><p class="nota">Seus dados já ficam no servidor. O arquivo é uma cópia extra, só do que é seu.</p>'
-    + '<div class="linha-botoes"><button class="btn sec" id="exportar">Salvar backup</button><button class="btn sec" id="importar">Restaurar</button></div>'
+    + '<div class="linha-botoes"><button class="btn sec'+(backupAtrasado() ? " com-ponto" : "")+'" id="exportar">Salvar backup</button><button class="btn sec" id="importar">Restaurar</button></div>'
     + '<div class="rotulo">Servidor</div><div class="linha-botoes"><button class="btn sec" id="testarServ">Testar ligação</button><button class="btn sec" id="configServidor">Servidor</button></div>';
 }
 
@@ -1399,8 +1420,8 @@ const PAGINAS = {
   sobre: ["Sobre o Finanças", pagSobre], termos: ["Termos de uso", pagTermos], privacidade: ["Política de privacidade", pagPrivacidade], cookies: ["Cookies e armazenamento", pagCookies]
 };
 
-function itemMenu(k, ic, titulo, sub){
-  return '<button class="menu-item" data-pag="'+k+'"><span class="mi-ic">'+ic+'</span><span class="mi-tx"><b>'+titulo+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</span><span class="mi-seta">›</span></button>';
+function itemMenu(k, ic, titulo, sub, ponto){
+  return '<button class="menu-item" data-pag="'+k+'"><span class="mi-ic'+(ponto ? " com-ponto" : "")+'">'+ic+'</span><span class="mi-tx"><b>'+titulo+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</span><span class="mi-seta">›</span></button>';
 }
 function telaPerfil(){
   if (perfilPag && PAGINAS[perfilPag]){
@@ -1418,15 +1439,14 @@ function telaPerfil(){
     + itemMenu("casal", "💞", "Casal", !S.premium ? "Premium" : temCasal() ? "Com "+esc(S.parceiro.nome) : S.nuvem.casal ? "À espera do convite" : "Convidar parceiro(a)")
     + itemMenu("metricas", "🏅", "Métricas e conquistas", "Nível "+nv.n+" · "+CONQUISTAS.filter(c => c.ok()).length+" de "+CONQUISTAS.length+" conquistas")
     + itemMenu("experiencia", "🎛️", "Visualização e filtros", "Moeda, lista e gráfico")
-    + itemMenu("contas", "📄", "Contas e dívidas", S.contasVis.length + " conta" + (S.contasVis.length === 1 ? "" : "s"))
     + itemMenu("plano", "⭐", "Plano", S.premium ? "Premium" : "Base")
     + '</div>';
   h += '<div class="grupo">App e comportamento</div><div class="menu-grupo">'
     + itemMenu("rapido", "⚡", "Lançamento rápido", IOS ? "Siri, toque traseiro, Botão de Ação" : (S.agitar ? "Agitar ligado" : "Agitar, voz, bloco na Central"))
     + itemMenu("notificacoes", "🔔", "Notificações", IOS ? "Lembretes de contas" : (S.notif || S.agitar ? "Notificação fixa ligada" : "Notificação fixa desligada"))
     + itemMenu("permissoes", "🔐", "Permissões", IOS ? "Ajustes do iPhone" : (S.bateriaLivre ? "Bateria sem restrições" : "Falta liberar a bateria"))
-    + itemMenu("atualizacoes", "⬇️", "Atualizações", a.disponivel ? "Nova versão "+esc(a.versao) : "Versão "+esc(S.versao || ""))
-    + itemMenu("dados", "💾", "Backup e servidor", "Cópia de segurança e ligação")
+    + itemMenu("atualizacoes", "⬇️", "Atualizações", a.disponivel ? "Nova versão "+esc(a.versao) : "Versão "+esc(S.versao || ""), a.disponivel)
+    + itemMenu("dados", "💾", "Backup e servidor", backupAtrasado() ? "Faça uma cópia de segurança" : "Cópia de segurança e ligação", backupAtrasado())
     + itemMenu("feedback", "💬", "Enviar feedback", "Sugestões, problemas ou pedidos")
     + '</div>';
   h += '<button class="btn sec" id="sairConta" style="color:var(--late);margin-top:22px">Sair da conta neste celular</button>'
@@ -1468,7 +1488,12 @@ function ligarInicio(animar){
 
   $$("[data-modo]").forEach(b => b.onclick = () => { modo = b.dataset.modo; preparar(); vibrar(); render(true); });
 
+  const heroi = $(".heroi");
+  if (heroi && "IntersectionObserver" in window){
+    new IntersectionObserver(es => es.forEach(e => heroi.classList.toggle("parado", !e.isIntersecting))).observe(heroi);
+  }
   ligarPosts();
+  animarAoRolar();
   ligarGrafico();
   $$("[data-vista]").forEach(b => b.onclick = () => { vista = b.dataset.vista; gravarPref("vista", vista); render(false); });
   const mais = $("#verMais"); if (mais) mais.onclick = () => { limitePosts += 40; render(false); };
@@ -1479,20 +1504,18 @@ function ligarPosts(){
     gestos(corpo, {
       aoApagar: alheio ? null : () => apagarGasto(id),
       aoToqueDuplo: () => { mostrarCoracao(corpo); const g = achar(id); if (g && !g.l) curtir(id); },
-      aoToque: () => folhaDetalhe(id)
+      aoToque: () => folhaDetalhe(id),
+      aoSegurar: () => alheio ? folhaDetalhe(id) : editarNoCartao(el, id)
     });
     $("[data-curtir]", el).onclick = () => curtir(id);
     $("[data-comentar]", el).onclick = () => folhaComentarios(id);
     $("[data-cat]", el).onclick = () => alheio ? folhaDetalhe(id) : folhaCategoria(id);
   });
-  $$(".post[data-troca]").forEach(el => gestos($(".corpo", el), {aoApagar: () => apagarTroca(el.dataset.troca)}));
 }
 function ligarResto(){
   $$("[data-conta]").forEach(b => b.onclick = () => folhaConta(b.dataset.conta));
-  $$("[data-contas]").forEach(b => b.onclick = folhaContas);
   $$("[data-pag]").forEach(b => b.onclick = () => {
     const k = b.dataset.pag;
-    if (k === "contas"){ folhaContas(); return; }
     if (k === "feedback"){ folhaFeedback(); return; }
     perfilPag = k; window.scrollTo(0, 0); render(false);
   });
@@ -1547,7 +1570,7 @@ function ligarResto(){
   $$("[data-premium]").forEach(b => b.onclick = () => folhaPremium(""));
   const lb = $("#libBateria"); if (lb) lb.onclick = () => ponte.liberarBateria();
   const ia = $("#iniAuto"); if (ia) ia.onclick = () => ponte.abrirInicioAutomatico();
-  const ex = $("#exportar"); if (ex) ex.onclick = () => ponte.exportar();
+  const ex = $("#exportar"); if (ex) ex.onclick = () => { try { localStorage.setItem("fin.backupMs", String(Date.now())); } catch(e){} ponte.exportar(); setTimeout(() => render(false), 400); };
   const im = $("#importar"); if (im) im.onclick = () => confirmar("Restaurar backup?", "Os seus dados atuais neste celular serão substituídos pelos do arquivo escolhido.", "Escolher arquivo", () => ponte.importar());
   ligarConta();
 }
@@ -1736,6 +1759,107 @@ function folhaServidor(){
   });
 }
 
+/* ================= Segurar o cartão: tudo vira editável ali mesmo ================= */
+function editarNoCartao(el, id){
+  const g = achar(id); if (!g || !meu(g)) return;
+  if ($(".corpo.editando")){ render(false); el = $('.post[data-id="'+id+'"]'); if (!el) return; }
+  const corpo = $(".corpo", el);
+  let receita = g.t === "r", escolhida = g.c, sh = !!g.sh;
+  let v = String(g.v).replace(".", ","), d = g.d, dt = isoData(g.q);
+  corpo.style.transform = ""; corpo.classList.add("editando");
+  const desenhar = () => {
+    const [emoji, cor] = cat(escolhida);
+    corpo.innerHTML = '<div class="ed-topo"><span class="av" style="--c:'+cor+'">'+emoji+'</span>'
+      + '<div class="seg"><button data-r="0" class="'+(receita ? "" : "on")+'">Saída</button><button data-r="1" class="'+(receita ? "on" : "")+'">Entrada</button></div>'
+      + '<button class="tag" style="--c:'+cor+'" data-ed-cat>'+esc(escolhida)+'</button></div>'
+      + '<input class="ed-valor'+(receita ? " pos" : "")+'" id="edV" inputmode="decimal" aria-label="Valor" value="'+esc(v)+'">'
+      + '<input class="ed-desc" id="edD" aria-label="Descrição" value="'+esc(d)+'" enterkeyhint="done">'
+      + '<input class="ed-data" id="edDt" type="date" aria-label="Data" value="'+dt+'">'
+      + chaveNos(sh)
+      + '<div class="ed-acoes"><button data-ed="cancelar">Cancelar</button><button data-ed="dup">Duplicar</button><button class="del" data-ed="apagar">Apagar</button></div>'
+      + '<div class="ed-acoes"><button class="ok" data-ed="salvar">Salvar</button></div>';
+    $("#edV", corpo).oninput = e => { v = e.target.value; };
+    $("#edD", corpo).oninput = e => { d = e.target.value; };
+    $("#edD", corpo).onkeydown = e => { if (e.key === "Enter") salvar(); };
+    $("#edDt", corpo).oninput = e => { dt = e.target.value; };
+    $$(".seg button", corpo).forEach(b => b.onclick = () => {
+      receita = b.dataset.r === "1";
+      const lista = receita ? S.categoriasReceita : S.categorias;
+      if (!lista.includes(escolhida)) escolhida = receita ? "Extra" : "Outros";
+      desenhar();
+    });
+    $("[data-ed-cat]", corpo).onclick = () => {
+      let tmp = escolhida;
+      abrirFolha('<h3>Categoria</h3><div id="rCat"></div><button class="btn" id="rOk">Confirmar</button>', f => {
+        roda($("#rCat", f), itensCategoria(receita, false), escolhida, x => { tmp = x; });
+        $("#rOk", f).onclick = () => { escolhida = tmp; fecharFolha(); desenhar(); };
+      });
+    };
+    const sw = $("#swNos", corpo); if (sw) sw.onclick = () => { sh = !sh; desenhar(); };
+    $('[data-ed="cancelar"]', corpo).onclick = () => render(false);
+    $('[data-ed="dup"]', corpo).onclick = () => { aplicar(ponte.duplicarGasto(id)); vibrar(); render(false); aviso("Duplicado com a data de hoje"); verificarConquistas(); };
+    $('[data-ed="apagar"]', corpo).onclick = () => { render(false); apagarGasto(id); };
+    $('[data-ed="salvar"]', corpo).onclick = salvar;
+  };
+  const salvar = () => {
+    const [a, m, dd] = (dt || "").split("-").map(Number);
+    const orig = new Date(g.q);
+    const nq = a ? new Date(a, m-1, dd, orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds()).getTime() : g.q;
+    if (!aplicar(ponte.editarGasto(id, String(nq), v, d, escolhida, receita, sh)).ok){ aviso("Confira o valor e a descrição"); return; }
+    vibrar(); render(false); aviso("Alterações salvas");
+  };
+  desenhar();
+}
+
+/* ================= Curtidas e comentários animados ao rolar ================= */
+const COM_VISTOS = (() => { try { return new Set(JSON.parse(localStorage.getItem("fin.comVistos") || "[]")); } catch(e){ return new Set(); } })();
+function marcarVisto(k){
+  COM_VISTOS.add(k);
+  try { localStorage.setItem("fin.comVistos", JSON.stringify([...COM_VISTOS].slice(-400))); } catch(e){}
+}
+let obsFeed = null;
+function animarAoRolar(){
+  if (obsFeed){ obsFeed.disconnect(); obsFeed = null; }
+  if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  obsFeed = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    obsFeed.unobserve(e.target);
+    const cur = $(".acao.curtido", e.target);
+    if (cur){ cur.classList.remove("ao-ver"); void cur.offsetWidth; cur.classList.add("ao-ver"); }
+    const p = $(".ultimo-com[data-com]", e.target);
+    if (p && p.dataset.pendente != null) digitar(p);
+  }), {threshold: .6});
+  $$(".post[data-id]").forEach(el => {
+    const p = $(".ultimo-com[data-com]", el);
+    if (p && !COM_VISTOS.has(p.dataset.com)){
+      // comentário novo: fica em branco e é digitado letra a letra quando o cartão aparecer
+      const tx = $(".tx", p);
+      p.style.minHeight = p.offsetHeight + "px";
+      p.dataset.pendente = tx.textContent; tx.textContent = ""; p.classList.add("digitando");
+    }
+    obsFeed.observe(el);
+  });
+}
+function digitar(p){
+  const tx = $(".tx", p), letras = [...p.dataset.pendente];
+  delete p.dataset.pendente;
+  marcarVisto(p.dataset.com);
+  const passo = Math.max(18, Math.min(55, 1400 / Math.max(letras.length, 1)));
+  let i = 0;
+  const t = setInterval(() => {
+    if (!p.isConnected){ clearInterval(t); return; }
+    tx.textContent = letras.slice(0, ++i).join("");
+    if (i >= letras.length){ clearInterval(t); p.classList.remove("digitando"); p.classList.add("postou"); p.style.minHeight = ""; }
+  }, passo);
+}
+
+/* Backup: sugere uma cópia se nunca foi feita (com dados) ou se passou de 30 dias */
+function backupAtrasado(){
+  let ms = 0; try { ms = +localStorage.getItem("fin.backupMs") || 0; } catch(e){}
+  if (!ms) return (S.meusLanc || []).length >= 10;
+  return Date.now() - ms > 30 * 864e5;
+}
+
 /* ================= Ações ================= */
 const achar = id => S.todos.find(x => x.id === id);
 function curtir(id){
@@ -1761,7 +1885,8 @@ function evitei(id){
   confete(18);
   const ref = S.refs.find(x => x.id === id);
   const eq = ref ? equivTexto(ref.v, ref.id) : "";
-  aviso(r.msg + (eq ? " = " + eq : ""));
+  const nova = S.trocas[0];
+  aviso(r.msg + (eq ? " = " + eq : ""), nova ? "Desfazer" : "", () => { aplicar(ponte.apagarTroca(nova.id, false)); render(false); });
   render(false); verificarConquistas();
 }
 
@@ -2068,7 +2193,11 @@ function folhaDetalhe(id){
     + (dono ? '<div class="linha-botoes"><button class="btn sec" id="dEditar">Editar</button><button class="btn sec" id="dDup">Duplicar</button></div>' : '')
     + '<div class="linha-botoes"><button class="btn sec" id="dCom">Comentários'+(g.cm.length ? " ("+g.cm.length+")" : "")+'</button>'
     + (dono ? '<button class="btn sec" id="dApagar" style="color:var(--late)">Apagar</button>' : '<button class="btn sec" id="dCurtir">'+(g.l ? "Descurtir" : "Curtir")+'</button>')+'</div>', f => {
-    const e = $("#dEditar", f); if (e) e.onclick = () => folhaEditar(id);
+    const e = $("#dEditar", f); if (e) e.onclick = () => {
+      fecharFolha(true);
+      const el = $('.post[data-id="'+id+'"]');
+      if (el){ el.scrollIntoView({block:"center", behavior:"smooth"}); editarNoCartao(el, id); } else folhaEditar(id);
+    };
     const du = $("#dDup", f); if (du) du.onclick = () => { aplicar(ponte.duplicarGasto(id)); vibrar(); fecharFolha(); render(false); aviso("Duplicado com a data de hoje"); verificarConquistas(); };
     $("#dCom", f).onclick = () => folhaComentarios(id);
     const ap = $("#dApagar", f); if (ap) ap.onclick = () => { fecharFolha(); apagarGasto(id); };
@@ -2120,6 +2249,7 @@ function folhaComentarios(id){
     const enviar = () => {
       if (!inp.value.trim()) return;
       aplicar(ponte.comentar(id, inp.value)); inp.value = "";
+      const gc = achar(id); if (gc) marcarVisto(id+":"+gc.cm.length);
       $("#coms", f).innerHTML = lista(); vibrar(); verificarConquistas();
     };
     $("#envCom", f).onclick = enviar;
@@ -2169,40 +2299,6 @@ function folhaConta(id){
     $$("[data-oc]", f).forEach(bt => bt.onclick = () => { if (pagar(bt.dataset.oc, "")){ render(false); folhaConta(id); } });
     const ex = $("#excluirConta", f);
     if (ex) ex.onclick = () => confirmar("Excluir “"+esc(c.n)+"”?", "As próximas deixam de aparecer. O que já foi pago continua no extrato.", "Excluir", () => { aplicar(ponte.apagar(c.id)); render(false); });
-  });
-}
-
-function folhaContas(){
-  const agoraIdx = MES_ATUAL.ano*12 + MES_ATUAL.mes;
-  const grupos = [
-    ["Neste mês", c => (c.ocs || []).length > 0],
-    ["Programadas", c => !(c.ocs || []).length && (idxMes(c.ini) > agoraIdx || restantesDepois(c) > 0)],
-    ["Encerradas", c => !(c.ocs || []).length && !(idxMes(c.ini) > agoraIdx || restantesDepois(c) > 0)]
-  ];
-  const item = (c, doMes) => '<div class="item'+(c.paga ? " paga" : "")+'">'
-    + (doMes ? '<button class="check" data-pagar="'+c.id+'" aria-label="Alternar">'+ICON.ok+'</button>' : '')
-    + '<div class="info" data-abrir-conta="'+c.id+'"><b>'+esc(c.n)+(c.sh ? '<span class="nos-tag">Nós</span>' : '')+'</b><small>'+(c.e ? "Entrada" : "Conta")+' · '+esc(descConta(c))+(doMes ? ' · '+esc(textoPaga(c)) : '')+'</small></div>'
-    + '<span class="'+(c.e ? "pos" : "")+'">'+(c.var ? "≈" : "")+(c.e ? "+" : "")+din(c.v)+'</span></div>';
-  const lista = () => {
-    if (!S.contasVis.length) return '<p class="nota">Nada ainda. Cadastre renda, luz, internet, salário, prestações…</p>';
-    return grupos.map(([nome, filtro], i) => {
-      const l = S.contasVis.filter(filtro).sort((a,b) => a.dia - b.dia);
-      return l.length ? '<div class="grupo">'+nome+'</div>' + l.map(c => item(c, i === 0)).join("") : "";
-    }).join("");
-  };
-  abrirFolha('<h3>Contas e dívidas</h3><div class="contas-lista" id="cl">'+lista()+'</div>'
-    + '<p class="nota" style="margin-top:12px">Toque no nome para ver detalhes ou excluir; no círculo para marcar como paga. Para criar, use o botão amarelo + e escolha “Todo mês” ou “Parcelado”.</p>', f => {
-    const ligarLista = () => {
-      $$("[data-pagar]", f).forEach(b => b.onclick = () => {
-        const c = S.contas.find(x => x.id === b.dataset.pagar);
-        // valor variável ou várias datas no mês: abre o detalhe para escolher
-        if (c && ((c.var && !c.paga) || (c.ocs || []).length > 1)){ folhaConta(c.id); return; }
-        const r = aplicar(ponte.alternarPaga(b.dataset.pagar, "", "")); if (!r.ok) aviso(r.msg);
-        vibrar(); $("#cl", f).innerHTML = lista(); ligarLista(); render(false); verificarConquistas();
-      });
-      $$("[data-abrir-conta]", f).forEach(b => b.onclick = () => folhaConta(b.dataset.abrirConta));
-    };
-    ligarLista();
   });
 }
 

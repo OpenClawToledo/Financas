@@ -5,6 +5,6 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">#FF201D2C</item>
+        <item name="android:navigationBarColor">#FF141D19</item>
     </style>
 </resources>
