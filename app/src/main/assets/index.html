@@ -376,6 +376,14 @@ body.entrada main{padding:48px 0 40px}
 .linha-campos .campo{margin:0;flex:1;min-width:0}
 .grupo{margin:14px 18px 6px;font-size:.8rem;color:var(--muted);font-weight:500}
 
+.adm-lista .item{align-items:flex-start}
+.adm-lista .info small{display:block;white-space:normal;margin-top:2px}
+.adm-botoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.adm-botoes button{padding:7px 11px;border-radius:12px;background:var(--surface2);font-size:.82rem}
+.adm-botoes .ok{background:var(--marca);color:var(--marca-tx);font-weight:700}
+.adm-botoes .del{color:var(--late)}
+.codigo-grande{margin:0 18px 12px;padding:18px;border-radius:18px;background:var(--ink);text-align:center;font-family:monospace;font-size:1.6rem;letter-spacing:.08em}
+.cfg-json{font-family:monospace;font-size:.8rem;color:var(--muted);white-space:pre-wrap;word-break:break-all;margin-top:4px}
 .banner-atu{display:flex;align-items:center;gap:12px;margin:0 18px 14px;padding:12px 14px;border-radius:18px;background:rgba(255,181,71,.12);color:var(--text);font-size:.9rem}
 .banner-atu span{flex:1}
 
@@ -1310,7 +1318,24 @@ function pagExperiencia(){
     + (temCasal() ? '<div class="rotulo">Ao abrir, mostrar</div>' + chips([["total","Total"],["eu","Só eu"],["nos","Nós"]], lerPref("modo", "total"), "data-mpad") : '')
     + '<p class="nota">As referências dos equivalentes (“x cafés”, horas de trabalho) ficam em Trocas.</p>';
 }
+const PRO = () => S.pro || {};
+const dataLonga = ms => new Date(ms).toLocaleDateString("pt-BR", {day:"numeric", month:"long", year:"numeric"});
 function pagPlano(){
+  const pr = PRO();
+  if (pr.servidor){
+    let h = '<div class="estado-nuvem">';
+    if (pr.admin) h += 'Você é <b>admin</b>: o Premium está sempre ativo nesta conta.';
+    else if (S.premium) h += 'Plano <b>Premium</b> ativo até <b>'+dataLonga(pr.expiraMs)+'</b>.';
+    else h += 'Plano atual: <b>Base</b>.'+(pr.expiraMs ? ' O Premium terminou em '+dataLonga(pr.expiraMs)+'; os seus dados continuam guardados.' : '');
+    h += '<br>Premium inclui contas que se repetem e a visão de casal.</div>';
+    if (!pr.admin){
+      if (pr.pendente) h += '<div class="estado-nuvem">⏳ Pedido enviado. Assim que for aprovado, o Premium liga sozinho.</div>'
+        + '<div class="linha-botoes"><button class="btn sec" id="proAtualizar">Verificar agora</button><button class="btn sec" id="proCancelar">Cancelar pedido</button></div>';
+      else h += '<button class="btn" id="proPedir">'+(S.premium ? "Pedir mais tempo" : "Pedir Premium")+'</button>';
+      h += '<button class="btn sec" id="proCodigo">Tenho um código</button>';
+    }
+    return h;
+  }
   return '<div class="estado-nuvem">Plano atual: <b>'+(S.premium ? "Premium" : "Base")+'</b>.<br>Premium inclui contas que se repetem (mensais, a cada 15 dias, semanais, a cada 2, 3, 6 ou 12 meses, prestações) e a visão de casal.</div>'
     + chave("swPremium", "Premium ativo", "Grátis por enquanto. Ao desativar, nada é apagado", S.premium);
 }
@@ -1424,7 +1449,7 @@ const PAGINAS = {
   conta: ["Conta e dados pessoais", pagConta], casal: ["Casal", () => secaoCasal().replace('<h3 class="h3">Casal</h3>', '')],
   metricas: ["Métricas e conquistas", pagMetricas], experiencia: ["Visualização e filtros", pagExperiencia], plano: ["Plano", pagPlano],
   rapido: ["Lançamento rápido", pagRapido], notificacoes: ["Notificações", pagNotificacoes], permissoes: ["Permissões", pagPermissoes],
-  atualizacoes: ["Atualizações", pagAtualizacoes], dados: ["Backup e servidor", pagDados],
+  admin: ["Painel admin", pagAdmin], atualizacoes: ["Atualizações", pagAtualizacoes], dados: ["Backup e servidor", pagDados],
   sobre: ["Sobre o Finanças", pagSobre], termos: ["Termos de uso", pagTermos], privacidade: ["Política de privacidade", pagPrivacidade], cookies: ["Cookies e armazenamento", pagCookies]
 };
 
@@ -1447,7 +1472,8 @@ function telaPerfil(){
     + itemMenu("casal", "💞", "Casal", !S.premium ? "Premium" : temCasal() ? "Com "+esc(S.parceiro.nome) : S.nuvem.casal ? "À espera do convite" : "Convidar parceiro(a)")
     + itemMenu("metricas", "🏅", "Métricas e conquistas", "Nível "+nv.n+" · "+CONQUISTAS.filter(c => c.ok()).length+" de "+CONQUISTAS.length+" conquistas")
     + itemMenu("experiencia", "🎛️", "Visualização e filtros", "Moeda, lista e gráfico")
-    + itemMenu("plano", "⭐", "Plano", S.premium ? "Premium" : "Base")
+    + itemMenu("plano", "⭐", "Plano", PRO().admin ? "Admin" : S.premium ? (PRO().servidor && PRO().expiraMs ? "Premium até "+dataLonga(PRO().expiraMs) : "Premium") : PRO().pendente ? "Pedido enviado" : "Base")
+    + (PRO().admin ? itemMenu("admin", "🛠️", "Painel admin", "Pedidos, usuários, códigos e configurações") : '')
     + '</div>';
   h += '<div class="grupo">App e comportamento</div><div class="menu-grupo">'
     + itemMenu("rapido", "⚡", "Lançamento rápido", IOS ? "Siri, toque traseiro, Botão de Ação" : (S.agitar ? "Agitar ligado" : "Agitar, voz, bloco na Central"))
@@ -1575,6 +1601,11 @@ function ligarResto(){
   const pi = $("#permInstalar"); if (pi) pi.onclick = () => ponte.permitirInstalacao();
   const sa2 = $("#swAutoAtu"); if (sa2) sa2.onclick = () => { aplicar(ponte.definirAutoAtualizar(!(S.atualizacao || {}).automatico)); render(false); };
   const sp2 = $("#swPremium"); if (sp2) sp2.onclick = () => alternarPremium(!S.premium);
+  const pp = $("#proPedir"); if (pp) pp.onclick = folhaPedirPro;
+  const pc = $("#proCodigo"); if (pc) pc.onclick = folhaCodigo;
+  const pAtu = $("#proAtualizar"); if (pAtu) pAtu.onclick = () => pedir("proAtu", () => ponte.atualizarPro("proAtu"), pAtu, () => aviso(S.premium ? "Premium ativo" : "Ainda aguardando aprovação"));
+  const pca = $("#proCancelar"); if (pca) pca.onclick = () => chamarPro("proCancelar", "cancelar_meu_pedido", {}, pca, r => aviso(r.ok ? "Pedido cancelado" : r.msg));
+  ligarAdmin();
   $$("[data-premium]").forEach(b => b.onclick = () => folhaPremium(""));
   const lb = $("#libBateria"); if (lb) lb.onclick = () => ponte.liberarBateria();
   const ia = $("#iniAuto"); if (ia) ia.onclick = () => ponte.abrirInicioAutomatico();
@@ -2363,8 +2394,132 @@ function folhaPremium(motivo){
     + '<div class="item"><span style="font-size:1.5rem">💞</span><div class="info"><b>Visão de casal</b><small>Eu, Nós e Total, partilhar lançamentos e acerto de contas</small></div></div>'
     + '</div><p class="nota" style="margin-top:12px">Por enquanto é grátis: basta ativar. Se desativar, nada é apagado; tudo volta quando ativar de novo.</p>'
     + '<button class="btn" id="ativarPremium">Ativar Premium</button>', f => {
-    $("#ativarPremium", f).onclick = () => { fecharFolha(); alternarPremium(true); };
+    const at = $("#ativarPremium", f);
+    if (PRO().servidor){
+      at.textContent = PRO().pendente ? "Pedido já enviado" : "Pedir Premium";
+      at.disabled = !!PRO().pendente;
+      $$(".nota", f).forEach(n => { if (/grátis/.test(n.textContent)) n.textContent = "O Premium é por assinatura: envie o pedido e ele liga sozinho quando for aprovado. Se terminar, nada é apagado."; });
+      at.insertAdjacentHTML("afterend", '<button class="btn sec" id="fpCodigo">Tenho um código</button>');
+      at.onclick = () => folhaPedirPro();
+      $("#fpCodigo", f).onclick = folhaCodigo;
+    } else at.onclick = () => { fecharFolha(); alternarPremium(true); };
   });
+}
+
+/* ---------- Premium por pedido (servidor) ---------- */
+function chamarPro(pedido, funcao, args, botao, cb){
+  pedir(pedido, () => ponte.pro(pedido, funcao, JSON.stringify(args || {})), botao, r => {
+    let dados = null; try { dados = r.dados ? JSON.parse(r.dados) : null; } catch(e){}
+    cb(r, dados);
+  });
+}
+function folhaPedirPro(){
+  let dias = 30;
+  abrirFolha('<h3>Pedir Premium</h3><p class="nota">Escolha por quanto tempo e, se quiser, deixe uma mensagem (por exemplo, como vai pagar).</p>'
+    + '<div class="chips" id="ppDias"></div>'
+    + '<label class="campo"><textarea id="ppMsg" rows="3" maxlength="500" placeholder="Mensagem (opcional)"></textarea></label>'
+    + '<button class="btn" id="ppEnviar">Enviar pedido</button>', f => {
+    const chips = () => { $("#ppDias", f).innerHTML = [[30,"1 mês"],[90,"3 meses"],[365,"1 ano"]].map(([d,n]) => '<button class="chip'+(d === dias ? " on" : "")+'" data-d="'+d+'">'+n+'</button>').join("");
+      $$("[data-d]", f).forEach(b => b.onclick = () => { dias = +b.dataset.d; chips(); }); };
+    chips();
+    $("#ppEnviar", f).onclick = () => chamarPro("pedirPro", "pedir_pro", {p_mensagem: $("#ppMsg", f).value.trim() || null, p_dias: dias}, $("#ppEnviar", f), r => {
+      if (!r.ok){ aviso(r.msg); return; }
+      vibrar(); fecharFolha(); render(false); aviso("Pedido enviado");
+    });
+  });
+}
+function folhaCodigo(){
+  abrirFolha('<h3>Código de ativação</h3><label class="campo"><span>Código</span><input id="cdCod" placeholder="A1B2-C3D4-E5F6" autocapitalize="characters" autocomplete="off"></label>'
+    + '<button class="btn" id="cdOk">Ativar</button>', f => {
+    $("#cdOk", f).onclick = () => chamarPro("resgatar", "resgatar_codigo", {p_codigo: $("#cdCod", f).value}, $("#cdOk", f), (r, exp) => {
+      if (!r.ok){ aviso(r.msg); return; }
+      vibrar(); confete(24); fecharFolha(); render(false); aviso("Premium ativo até "+dataLonga(Date.parse(exp)));
+    });
+  });
+}
+
+/* ---------- Painel admin (só aparece e só funciona para o admin: o servidor confere) ---------- */
+let adm = {aba:"pedidos"};
+const ADM_ABAS = [["pedidos","Pedidos"],["usuarios","Usuários"],["codigos","Códigos"],["config","Config"]];
+function pagAdmin(){
+  let h = '<div class="modos">'+ADM_ABAS.map(([k,n]) => '<button class="'+(adm.aba === k ? "on" : "")+'" data-adm="'+k+'">'+n+'</button>').join("")+'</div>';
+  const dados = adm[adm.aba];
+  if (adm.aba === "codigos") return h + '<p class="nota">Gere um código para mandar por WhatsApp. A pessoa ativa em Perfil → Plano → Tenho um código. Cada código vale uma vez e expira em 30 dias se não for usado.</p>'
+    + '<div class="chips">'+[[30,"1 mês"],[90,"3 meses"],[365,"1 ano"]].map(([d,n]) => '<button class="chip" data-gerar="'+d+'">Gerar · '+n+'</button>').join("")+'</div>';
+  if (dados === undefined) return h + '<div class="lendo"></div>';
+  if (dados && dados.erro) return h + '<div class="estado-nuvem"><span class="erro">'+esc(dados.erro)+'</span></div><button class="btn sec" id="admRecarregar">Tentar de novo</button>';
+  const lista = dados || [];
+  if (adm.aba === "pedidos"){
+    if (!lista.length) h += '<p class="nota">Nenhum pedido pendente.</p>';
+    h += '<div class="contas-lista adm-lista">'+lista.map(p => '<div class="item"><div class="info"><b>'+esc(p.nome || p.email || "Sem nome")+'</b>'
+      + '<small>'+esc(p.email || "")+' · pediu '+(p.dias_pedidos || "?")+' dias · '+haQuanto(Date.parse(p.criado_em))+'</small>'
+      + (p.mensagem ? '<small>“'+esc(p.mensagem)+'”</small>' : '')
+      + (p.pro_expira_em && Date.parse(p.pro_expira_em) > Date.now() ? '<small class="pos">Premium até '+dataLonga(Date.parse(p.pro_expira_em))+'</small>' : '')
+      + '<div class="adm-botoes">'+[30,90,365].map(d => '<button class="'+(d === p.dias_pedidos ? "ok" : "")+'" data-aprovar="'+p.pedido_id+'" data-dias="'+d+'">+'+d+' dias</button>').join("")
+      + '<button class="del" data-recusar="'+p.pedido_id+'">Recusar</button></div></div></div>').join("")+'</div>';
+  } else if (adm.aba === "usuarios"){
+    h += '<p class="nota">'+lista.length+' conta'+(lista.length === 1 ? "" : "s")+' · '+lista.filter(u => u.pro_ativo).length+' com Premium</p>';
+    h += '<div class="contas-lista adm-lista">'+lista.map(u => '<div class="item"><div class="info"><b>'+esc(u.nome || u.email || "Sem nome")+'</b>'
+      + '<small>'+esc(u.email || "")+'</small>'
+      + '<small class="'+(u.pro_ativo ? "pos" : "")+'">'+(u.pro_ativo ? "Premium até "+dataLonga(Date.parse(u.pro_expira_em)) : "Base")+'</small>'
+      + '<div class="adm-botoes"><button data-conceder="'+u.user_id+'" data-dias="30">+30 dias</button><button data-conceder="'+u.user_id+'" data-dias="365">+1 ano</button>'
+      + (u.pro_ativo ? '<button class="del" data-revogar="'+u.user_id+'">Encerrar</button>' : '')+'</div></div></div>').join("")+'</div>';
+  } else if (adm.aba === "config"){
+    h += '<p class="nota">Todos os apps leem estas configurações; só você pode alterar. Toque para editar.</p>';
+    h += '<div class="contas-lista adm-lista">'+lista.map(c => '<div class="item" data-cfg="'+esc(c.chave)+'"><div class="info"><b>'+esc(c.chave)+'</b>'
+      + (c.descricao ? '<small>'+esc(c.descricao)+'</small>' : '')+'<div class="cfg-json">'+esc(JSON.stringify(c.valor))+'</div></div></div>').join("")+'</div>';
+  }
+  return h + '<button class="btn sec" id="admRecarregar">Atualizar</button>';
+}
+function carregarAdm(){
+  const aba = adm.aba;
+  if (aba === "codigos" || adm[aba] !== undefined || adm.carregando) return;
+  adm.carregando = true;
+  const fim = (r, dados) => { adm.carregando = false; adm[aba] = r.ok ? (Array.isArray(dados) ? dados : []) : {erro: r.msg || "Não foi possível carregar"}; if (folhaAberta || aba !== adm.aba) return; render(false); };
+  if (aba === "config") pedir("admCfg", () => ponte.lerConfig("admCfg"), null, r => { let d = null; try { d = JSON.parse(r.dados); } catch(e){} fim(r, d); });
+  else chamarPro("adm_"+aba, aba === "pedidos" ? "admin_listar_pedidos" : "admin_listar_usuarios", aba === "pedidos" ? {p_status:"pendente"} : {}, null, fim);
+}
+function ligarAdmin(){
+  if (perfilPag !== "admin") return;
+  $$("[data-adm]").forEach(b => b.onclick = () => { adm.aba = b.dataset.adm; render(false); });
+  const rc = $("#admRecarregar"); if (rc) rc.onclick = () => { delete adm[adm.aba]; render(false); };
+  const refazer = (...abas) => { abas.forEach(a => delete adm[a]); render(false); };
+  $$("[data-aprovar]").forEach(b => b.onclick = () => chamarPro("admAprovar", "aprovar_pedido", {p_pedido_id: +b.dataset.aprovar, p_dias: +b.dataset.dias}, b, r => {
+    if (!r.ok){ aviso(r.msg); return; } vibrar(); aviso("Aprovado: +"+b.dataset.dias+" dias"); refazer("pedidos", "usuarios");
+  }));
+  $$("[data-recusar]").forEach(b => b.onclick = () => confirmar("Recusar pedido?", "A pessoa continua no plano Base.", "Recusar", () =>
+    chamarPro("admRecusar", "recusar_pedido", {p_pedido_id: +b.dataset.recusar, p_resposta: null}, null, r => { aviso(r.ok ? "Pedido recusado" : r.msg); refazer("pedidos"); })));
+  $$("[data-conceder]").forEach(b => b.onclick = () => chamarPro("admConceder", "admin_conceder_dias", {p_user: b.dataset.conceder, p_dias: +b.dataset.dias}, b, r => {
+    if (!r.ok){ aviso(r.msg); return; } vibrar(); aviso("+"+b.dataset.dias+" dias concedidos"); refazer("usuarios");
+  }));
+  $$("[data-revogar]").forEach(b => b.onclick = () => confirmar("Encerrar o Premium?", "Termina agora. Os dados da pessoa não são apagados.", "Encerrar", () =>
+    chamarPro("admRevogar", "admin_revogar_pro", {p_user: b.dataset.revogar}, null, r => { aviso(r.ok ? "Premium encerrado" : r.msg); refazer("usuarios"); })));
+  $$("[data-gerar]").forEach(b => b.onclick = () => {
+    const obs = "";
+    chamarPro("admGerar", "admin_gerar_codigo", {p_dias: +b.dataset.gerar, p_observacao: obs || null}, b, (r, cod) => {
+      if (!r.ok || !cod){ aviso(r.msg || "Não foi possível gerar"); return; }
+      vibrar();
+      abrirFolha('<h3>Código de '+b.dataset.gerar+' dias</h3><div class="codigo-grande">'+esc(cod)+'</div>'
+        + '<p class="nota">Anote ou envie agora: por segurança, este código não aparece de novo.</p>'
+        + '<div class="linha-botoes"><button class="btn" id="cgCopiar">Copiar</button></div>', f => {
+        $("#cgCopiar", f).onclick = () => { aviso(aplicar(ponte.copiar("Código do Finanças Premium: "+cod)).msg); };
+      });
+    });
+  });
+  $$("[data-cfg]").forEach(el => el.onclick = () => {
+    const c = (adm.config || []).find(x => x.chave === el.dataset.cfg); if (!c) return;
+    abrirFolha('<h3>'+esc(c.chave)+'</h3>'+(c.descricao ? '<p class="nota">'+esc(c.descricao)+'</p>' : '')
+      + '<textarea class="campo-grande" id="cfgV" rows="8" spellcheck="false" style="font-family:monospace">'+esc(JSON.stringify(c.valor, null, 2))+'</textarea>'
+      + '<button class="btn" id="cfgOk">Salvar</button>', f => {
+      $("#cfgOk", f).onclick = () => {
+        let v; try { v = JSON.parse($("#cfgV", f).value); } catch(e){ aviso("Formato inválido: confira vírgulas e aspas"); return; }
+        pedir("admCfgSalvar", () => ponte.salvarConfig("admCfgSalvar", c.chave, JSON.stringify(v)), $("#cfgOk", f), r => {
+          aviso(r.msg); if (r.ok){ c.valor = v; fecharFolha(); render(false); }
+        });
+      };
+    });
+  });
+  carregarAdm();
 }
 
 /* ---------- Referências (e o que evitar) ---------- */

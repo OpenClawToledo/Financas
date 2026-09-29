@@ -364,8 +364,13 @@ object Armazem {
     fun registrarFeedback(ctx: Context, dados: JSONObject) { novo(ctx, "feedback", false, dados) }
 
     // ---------- Plano (Premium) ----------
-    /** Premium ativo? Fica num registro da própria pessoa, por isso vale em todos os aparelhos dela. */
-    fun premium(ctx: Context): Boolean = b(ctx).todos("plano").filter { it.dono == eu(ctx) }.any { it.dados.optBoolean("premium") }
+    /**
+     * Premium ativo? No servidor com o Pro (pro_admin.sql), vale a validade dada pelo admin (o admin tem sempre).
+     * Sem essas funções no servidor, vale o registro "plano" da própria pessoa, ativado no app.
+     */
+    fun premium(ctx: Context): Boolean =
+        if (Sessao.proServidor(ctx)) Sessao.proAdmin(ctx) || Sessao.proExpira(ctx) > System.currentTimeMillis()
+        else b(ctx).todos("plano").filter { it.dono == eu(ctx) }.any { it.dados.optBoolean("premium") }
 
     /** Liga ou desliga o Premium. Desligar não apaga nada: só esconde os recursos Premium. */
     fun definirPremium(ctx: Context, ativo: Boolean) {

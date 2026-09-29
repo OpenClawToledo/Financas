@@ -49,10 +49,18 @@ object Sessao {
     fun erro(ctx: Context): String = p(ctx).getString("erro", "") ?: ""
     fun convitePendente(ctx: Context): String = p(ctx).getString("convitePendente", "") ?: ""
 
+    // Plano Pro vindo do servidor (cache para funcionar sem internet)
+    /** O servidor tem as funções do Pro (pro_admin.sql)? Sem elas, o Premium continua a ser ativado no próprio app. */
+    fun proServidor(ctx: Context) = p(ctx).getBoolean("proServidor", false)
+    fun proExpira(ctx: Context) = p(ctx).getLong("proExpira", 0L)
+    fun proAdmin(ctx: Context) = p(ctx).getBoolean("proAdmin", false)
+    fun proPendente(ctx: Context) = p(ctx).getBoolean("proPendente", false)
+
     fun editar(ctx: Context, bloco: android.content.SharedPreferences.Editor.() -> Unit) { p(ctx).edit().apply(bloco).commit() }
 
     fun sair(ctx: Context) = editar(ctx) {
-        listOf("uid", "email", "access", "refresh", "expira", "casal", "codigo", "parceiroId", "parceiroNome", "ultima", "ultimaMs", "erro", "convitePendente").forEach { remove(it) }
+        listOf("uid", "email", "access", "refresh", "expira", "casal", "codigo", "parceiroId", "parceiroNome", "ultima", "ultimaMs", "erro", "convitePendente",
+            "proServidor", "proExpira", "proAdmin", "proPendente").forEach { remove(it) }
     }
 
     fun access(ctx: Context): String = p(ctx).getString("access", "") ?: ""
@@ -298,6 +306,37 @@ object Nuvem {
         return Http.enviar("POST", base(ctx) + "/rest/v1/rpc/$funcao", cab(ctx, t), args.toString())
     }
 
+    // ---------- Plano Pro (validade guardada no servidor) ----------
+    /** Consulta o Pro no servidor e guarda em cache. Servidor sem as funções do Pro (404) volta ao modo local. */
+    fun atualizarPro(ctx: Context) {
+        val r = rpc(ctx, "meu_status_pro", JSONObject())
+        if (r.codigo == 404) { Sessao.editar(ctx) { putBoolean("proServidor", false) }; return }
+        if (!r.ok) return
+        val o = try { JSONArray(r.corpo).optJSONObject(0) } catch (e: Exception) { null } ?: return
+        val exp = o.optString("expira_em").takeIf { it.isNotEmpty() && it != "null" }?.let {
+            try { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() } catch (e: Exception) { 0L }
+        } ?: 0L
+        Sessao.editar(ctx) {
+            putBoolean("proServidor", true); putLong("proExpira", exp)
+            putBoolean("proAdmin", o.optBoolean("is_admin")); putBoolean("proPendente", o.optBoolean("pedido_pendente"))
+        }
+    }
+
+    /** Funções do Pro e do painel admin (o servidor confere quem pode chamar cada uma). */
+    fun chamarPro(ctx: Context, funcao: String, args: JSONObject): Resp = rpc(ctx, funcao, args)
+
+    /** Configurações do app (todos leem; só o admin grava — a regra está no servidor). */
+    fun lerConfig(ctx: Context): Resp {
+        val t = token(ctx) ?: return Resp(401, """{"message":"Faça login"}""")
+        return Http.enviar("GET", base(ctx) + "/rest/v1/config_app?select=chave,valor,descricao&order=chave", cab(ctx, t))
+    }
+    fun salvarConfig(ctx: Context, chave: String, valor: Any): Resp {
+        val t = token(ctx) ?: return Resp(401, """{"message":"Faça login"}""")
+        val corpo = JSONObject().put("chave", chave).put("valor", valor).toString()
+        return Http.enviar("POST", base(ctx) + "/rest/v1/config_app?on_conflict=chave",
+            cab(ctx, t) + mapOf("Prefer" to "resolution=merge-duplicates,return=minimal"), corpo)
+    }
+
     // ---------- Casal ----------
     /** Cria (ou recupera) o código do casal e devolve o texto do convite. */
     fun convidar(ctx: Context): Pair<String?, String?> {
@@ -418,6 +457,7 @@ object Nuvem {
         }
 
         atualizarCasal(ctx)
+        atualizarPro(ctx)
 
         // 2. Receber
         val primeira = Sessao.ultima(ctx).isEmpty()

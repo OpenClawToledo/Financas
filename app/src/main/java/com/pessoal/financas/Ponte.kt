@@ -101,6 +101,8 @@ object Estado {
             .put("agitar", Ajustes.agitarAtivo(ctx))
             .put("sens", Ajustes.sensibilidade(ctx))
             .put("premium", Armazem.premium(ctx))
+            .put("pro", JSONObject().put("servidor", Sessao.proServidor(ctx)).put("admin", Sessao.proAdmin(ctx))
+                .put("expiraMs", Sessao.proExpira(ctx)).put("pendente", Sessao.proPendente(ctx)))
             .put("bateriaLivre", Agitar.bateriaLivre(ctx))
             .put("atualizacao", Atualizador.estado(ctx))
             .put("servidorProprio", Sessao.url(ctx) != Sessao.URL_PADRAO)
@@ -292,6 +294,33 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
             .put("versao", versao).put("aparelho", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
             .put("sistema", "Android " + android.os.Build.VERSION.RELEASE))
         return resp(true)
+    }
+
+    // ---------- Pro por pedido e painel admin (servidor) ----------
+    private val funcoesPro = setOf("pedir_pro", "cancelar_meu_pedido", "resgatar_codigo", "admin_listar_pedidos", "admin_listar_usuarios",
+        "aprovar_pedido", "recusar_pedido", "admin_conceder_dias", "admin_revogar_pro", "admin_gerar_codigo")
+
+    /** args = objeto JSON com os parâmetros da função; a resposta traz "dados" (o JSON devolvido, em texto). */
+    @JavascriptInterface fun pro(pedido: String, funcao: String, args: String) = emSegundoPlano(pedido) {
+        if (funcao !in funcoesPro) return@emSegundoPlano JSONObject().put("ok", false).put("msg", "Função desconhecida")
+        val a = try { JSONObject(args) } catch (e: Exception) { JSONObject() }
+        val r = Nuvem.chamarPro(ctx, funcao, a)
+        if (r.ok) Nuvem.atualizarPro(ctx)
+        JSONObject().put("ok", r.ok).put("msg", if (r.ok) "" else r.mensagem()).put("dados", r.corpo)
+    }
+
+    @JavascriptInterface fun atualizarPro(pedido: String) = emSegundoPlano(pedido) { Nuvem.atualizarPro(ctx); JSONObject().put("ok", true) }
+
+    @JavascriptInterface fun lerConfig(pedido: String) = emSegundoPlano(pedido) {
+        val r = Nuvem.lerConfig(ctx)
+        JSONObject().put("ok", r.ok).put("msg", if (r.ok) "" else r.mensagem()).put("dados", r.corpo)
+    }
+
+    /** valor = JSON em texto (objeto, lista, número ou texto entre aspas). */
+    @JavascriptInterface fun salvarConfig(pedido: String, chave: String, valor: String) = emSegundoPlano(pedido) {
+        val v: Any = try { org.json.JSONTokener(valor).nextValue() } catch (e: Exception) { return@emSegundoPlano JSONObject().put("ok", false).put("msg", "JSON inválido") }
+        val r = Nuvem.salvarConfig(ctx, chave, v)
+        JSONObject().put("ok", r.ok).put("msg", if (r.ok) "Configuração salva" else if (r.codigo == 401 || r.codigo == 403) "Só o admin pode alterar" else r.mensagem())
     }
 
     @JavascriptInterface fun definirPremium(ativo: Boolean): String = mudar { Armazem.definirPremium(ctx, ativo) }
