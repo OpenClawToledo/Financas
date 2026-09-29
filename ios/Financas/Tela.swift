@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 final class Tela: UIViewController, WKScriptMessageHandler, WKURLSchemeHandler, WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate {
     private var web: WKWebView!
     private var pronta = false
-    private let fundo = UIColor(red: 0x15 / 255.0, green: 0x13 / 255.0, blue: 0x1F / 255.0, alpha: 1)
+    private let fundo = UIColor(red: 0x0B / 255.0, green: 0x12 / 255.0, blue: 0x10 / 255.0, alpha: 1)
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 

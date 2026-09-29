@@ -23,7 +23,7 @@ class MainActivity : Activity(), Hospedeiro {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val fundo = Color.parseColor("#15131F")
+        val fundo = Color.parseColor("#0B1210")
         window.statusBarColor = fundo
         window.navigationBarColor = fundo
         web = Tela.criar(this, this, "file:///android_asset/index.html", false)

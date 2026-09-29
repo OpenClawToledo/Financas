@@ -175,6 +175,13 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
         return mudar { Armazem.editar(ctx, id, Gasto(q.toLong(), v, desc.trim(), cat, receita), sh) }
     }
 
+    /** Muda a conta que se repete a partir de agora (dia = 0 mantém o dia). */
+    @JavascriptInterface fun editarConta(id: String, nome: String, valor: String, cat: String, dia: Int): String {
+        val v = Interpretador.paraNumero(valor)
+        if (v == null || v <= 0 || nome.isBlank()) return resp(false)
+        return mudar { Armazem.editarConta(ctx, id, nome.trim(), v, cat, dia) }
+    }
+
     @JavascriptInterface fun duplicarGasto(id: String): String = mudar { Armazem.duplicar(ctx, id) }
     @JavascriptInterface fun apagar(id: String): String = mudar { Armazem.apagar(ctx, id) }
     @JavascriptInterface fun restaurar(id: String): String = mudar { Armazem.restaurar(ctx, id) }
