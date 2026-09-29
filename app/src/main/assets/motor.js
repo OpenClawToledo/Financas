@@ -108,9 +108,12 @@
     ultima: () => S_("ultima"), ultimaSyncMs: () => pref.get("nuvem", "ultimaMs", 0),
     erro: () => S_("erro"), convitePendente: () => S_("convitePendente"),
     access: () => S_("access"), refresh: () => S_("refresh"), expira: () => pref.get("nuvem", "expira", 0),
+    proServidor: () => !!pref.get("nuvem", "proServidor", false), proExpira: () => pref.get("nuvem", "proExpira", 0),
+    proAdmin: () => !!pref.get("nuvem", "proAdmin", false), proPendente: () => !!pref.get("nuvem", "proPendente", false),
     editar(obj) { Object.entries(obj).forEach(([k, v]) => { if (v === null) delete blocos.nuvem[k]; else blocos.nuvem[k] = v; }); gravar("nuvem"); },
     sair() {
-      ["uid", "email", "access", "refresh", "expira", "casal", "codigo", "parceiroId", "parceiroNome", "ultima", "ultimaMs", "erro", "convitePendente"]
+      ["uid", "email", "access", "refresh", "expira", "casal", "codigo", "parceiroId", "parceiroNome", "ultima", "ultimaMs", "erro", "convitePendente",
+        "proServidor", "proExpira", "proAdmin", "proPendente"]
         .forEach(k => delete blocos.nuvem[k]);
       gravar("nuvem");
     }
@@ -378,7 +381,11 @@
       return true;
     },
 
-    premium() { const me = this.eu(); return Banco.todos("plano").some(r => r.dono === me && r.dados.premium); },
+    // No servidor com o Pro vale a validade dada pelo admin; sem ele, o registro "plano" ativado no app
+    premium() {
+      if (Sessao.proServidor()) return Sessao.proAdmin() || Sessao.proExpira() > agora();
+      const me = this.eu(); return Banco.todos("plano").some(r => r.dono === me && r.dados.premium);
+    },
     definirPremium(ativo) {
       const me = this.eu(), meus = Banco.todos("plano").filter(r => r.dono === me);
       const d = { premium: !!ativo, q: agora() };
@@ -485,6 +492,7 @@
       categorias: Categorias.todas, categoriasReceita: Categorias.receitas,
       hoje, diasNoMes: Datas.diasNoMes(), conquistasVistas: Ajustes.conquistas(),
       notif: false, agitar: false, sens: 1, premium: Armazem.premium(), bateriaLivre: true,
+      pro: { servidor: Sessao.proServidor(), admin: Sessao.proAdmin(), expiraMs: Sessao.proExpira(), pendente: Sessao.proPendente() },
       atualizacao: Atualizacao.estado(),
       servidorProprio: Sessao.url() !== URL_PADRAO,
       versao: INFO.versao, plataforma: INFO.plataforma
@@ -658,6 +666,24 @@
       const t = await this.token(); if (!t) return Resp(401, '{"message":"Faça login"}');
       return http("POST", this.base() + "/rest/v1/rpc/" + funcao, this.cab(t), JSON.stringify(args));
     },
+    async atualizarPro() {
+      const r = await this.rpc("meu_status_pro", {});
+      if (r.codigo === 404) { Sessao.editar({ proServidor: false }); return; }
+      if (!r.ok) return;
+      let o; try { o = JSON.parse(r.corpo)[0]; } catch (e) { return; }
+      if (!o) return;
+      const exp = o.expira_em ? Date.parse(o.expira_em) || 0 : 0;
+      Sessao.editar({ proServidor: true, proExpira: exp, proAdmin: !!o.is_admin, proPendente: !!o.pedido_pendente });
+    },
+    async lerConfig() {
+      const t = await this.token(); if (!t) return Resp(401, '{"message":"Faça login"}');
+      return http("GET", this.base() + "/rest/v1/config_app?select=chave,valor,descricao&order=chave", this.cab(t));
+    },
+    async salvarConfig(chave, valor) {
+      const t = await this.token(); if (!t) return Resp(401, '{"message":"Faça login"}');
+      return http("POST", this.base() + "/rest/v1/config_app?on_conflict=chave",
+        Object.assign(this.cab(t), { Prefer: "resolution=merge-duplicates,return=minimal" }), JSON.stringify({ chave, valor }));
+    },
     async convidar() {
       const r = await this.rpc("criar_casal", { p_nome: Ajustes.nome() });
       if (!r.ok) return [null, r.mensagem()];
@@ -732,6 +758,7 @@
       }
 
       await this.atualizarCasal();
+      await this.atualizarPro();
 
       // 2. Receber
       let desde = Sessao.ultima() || "1970-01-01T00:00:00+00:00";
@@ -937,6 +964,22 @@
     redefinirSenha: (email, codigo, nova) => emSegundoPlano("redefinir", async () => ok(await Nuvem.redefinirSenha(email, codigo, nova))),
     trocarSenha: nova => emSegundoPlano("trocarSenha", async () => { const e = await Nuvem.trocarSenha(nova); return { ok: !e, msg: e || "Senha alterada" }; }),
     testarServidor: () => emSegundoPlano("testar", async () => { const e = await Nuvem.testar(); return { ok: !e, msg: e || "Ligação ao servidor funcionando" }; }),
+    pro: (pedido, funcao, args) => emSegundoPlano(pedido, async () => {
+      const permitidas = ["pedir_pro", "cancelar_meu_pedido", "resgatar_codigo", "admin_listar_pedidos", "admin_listar_usuarios",
+        "aprovar_pedido", "recusar_pedido", "admin_conceder_dias", "admin_revogar_pro", "admin_gerar_codigo"];
+      if (!permitidas.includes(funcao)) return { ok: false, msg: "Função desconhecida" };
+      let a = {}; try { a = JSON.parse(args || "{}"); } catch (e) {}
+      const r = await Nuvem.rpc(funcao, a);
+      if (r.ok) await Nuvem.atualizarPro();
+      return { ok: r.ok, msg: r.ok ? "" : r.mensagem(), dados: r.corpo };
+    }),
+    atualizarPro: pedido => emSegundoPlano(pedido, async () => { await Nuvem.atualizarPro(); return { ok: true }; }),
+    lerConfig: pedido => emSegundoPlano(pedido, async () => { const r = await Nuvem.lerConfig(); return { ok: r.ok, msg: r.ok ? "" : r.mensagem(), dados: r.corpo }; }),
+    salvarConfig: (pedido, chave, valor) => emSegundoPlano(pedido, async () => {
+      let v; try { v = JSON.parse(valor); } catch (e) { return { ok: false, msg: "JSON inválido" }; }
+      const r = await Nuvem.salvarConfig(chave, v);
+      return { ok: r.ok, msg: r.ok ? "Configuração salva" : (r.codigo === 401 || r.codigo === 403 ? "Só o admin pode alterar" : r.mensagem()) };
+    }),
     convidar: () => emSegundoPlano("convidar", async () => { const [t, e] = await Nuvem.convidar(); return { ok: !!t, msg: e || "", texto: t || "" }; }),
     sairDoCasal: () => emSegundoPlano("sairCasal", async () => ok(await Nuvem.sairDoCasal())),
     sincronizar: () => emSegundoPlano("sincronizar", async () => ok(await Nuvem.sincronizarAgora())),

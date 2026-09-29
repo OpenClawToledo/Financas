@@ -1,0 +1,21 @@
+name: Verificar APK
+# Só compila, para conferir o código de um PR antes do merge. Não publica nada nem atualiza os celulares.
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Compilar
+        run: gradle assembleDebug --no-daemon
