@@ -196,47 +196,46 @@
   const ativaEm = (c, mes) => { const p = mes.split("-"); return ocorrenciasNoMes(c, +p[0], +p[1]).length > 0; };
 
   // ================= Categorias e interpretador =================
-  const FIXAS = "Contas fixas", OUTROS = "Outros", SALARIO = "Salário", EXTRA = "Extra";
-  const regras = [
-    ["Compras", ["mercado livre", "shopee", "amazon", "shein", "aliexpress", "roupa", "loja", "tenis", "presente", "worten", "fnac"]],
-    ["Mercado", ["supermercado", "mercado", "feira", "hortifruti", "atacad", "acougue", "talho", "continente", "pingo doce", "lidl", "aldi", "minipreco", "intermarche", "mercearia"]],
-    ["Alimentação", ["almoco", "jantar", "lanche", "cafe", "restaurante", "ifood", "uber eats", "glovo", "bolt food", "pizza", "hamburg", "padaria", "pastelaria", "bar", "gelado", "sorvete", "pequeno-almoco"]],
-    ["Hábitos", ["cigarro", "tabaco", "maco", "vape", "raspadinha", "aposta", "euromilhoes", "cerveja", "bebida"]],
-    ["Transporte", ["uber", "bolt", "gasolina", "gasoleo", "combustivel", "posto", "autocarro", "onibus", "metro", "comboio", "cp ", "estacionamento", "portagem", "pedagio", "oficina", "via verde"]],
-    ["Moradia", ["aluguel", "renda", "condominio", "luz", "energia", "edp", "agua", "gas", "internet", "meo", "nos ", "vodafone", "reforma"]],
-    ["Saúde", ["farmacia", "remedio", "medicamento", "medico", "consulta", "exame", "ginasio", "academia", "dentista"]],
-    ["Lazer", ["cinema", "concerto", "show", "viagem", "netflix", "spotify", "hbo", "disney", "jogo", "passeio", "festa"]],
-    ["Educação", ["curso", "livro", "escola", "faculdade", "universidade", "propina", "apostila", "formacao"]]
-  ];
-  const regrasReceita = [
-    [SALARIO, ["salario", "ordenado", "vencimento"]],
-    ["Reembolso", ["reembolso", "devolveu", "devolucao", "estorno"]],
-    ["Rendimentos", ["juros", "rendimento", "dividendo", "cashback"]]
-  ];
-  const apelidos = [
-    ["Compras", ["compras", "compra"]], ["Mercado", ["mercado"]], ["Alimentação", ["alimentacao", "comida"]],
-    ["Hábitos", ["habitos", "habito"]], ["Transporte", ["transporte", "transportes"]], ["Moradia", ["moradia", "casa"]],
-    ["Saúde", ["saude"]], ["Lazer", ["lazer"]], ["Educação", ["educacao", "estudo", "estudos"]],
-    [FIXAS, ["contas fixas", "conta fixa"]], [OUTROS, ["outros", "outro"]],
-    [SALARIO, ["salario"]], ["Reembolso", ["reembolso"]], ["Rendimentos", ["rendimentos", "rendimento"]], [EXTRA, ["extra"]]
-  ];
+  // Árvore de categorias: o mesmo assets/categorias.json do Android (o iPhone injeta; no navegador, lê o arquivo)
+  const SEP = " › ", OUTROS = "Outros", RECEITAS = "Receitas", OUTRAS_RECEITAS = "Receitas › Outras Receitas";
+  const CAT = (() => {
+    if (window.__FIN_CATEGORIAS) return typeof window.__FIN_CATEGORIAS === "string" ? JSON.parse(window.__FIN_CATEGORIAS) : window.__FIN_CATEGORIAS;
+    try { const x = new XMLHttpRequest(); x.open("GET", "categorias.json", false); x.send(); return JSON.parse(x.responseText); }
+    catch (e) { return { arvore: [{ n: "Outros", e: "✨", cor: "#C9C2DA", subs: [] }, { n: "Receitas", e: "💰", cor: "#4CD6A0", receita: true, subs: [{ n: "Outras Receitas", e: "💶" }] }], regras: [], regrasReceita: [], legado: {}, apelidos: {} }; }
+  })();
+  const cacheRe = {};
+  const casa = (texto, chave) => {
+    const k = chave.trim();
+    const re = cacheRe[chave] || (cacheRe[chave] = new RegExp("(?<![a-z0-9])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (k.length <= 4 ? "(?![a-z0-9])" : "")));
+    return re.test(texto);
+  };
   const Categorias = {
-    todas: regras.map(r => r[0]).concat([FIXAS, OUTROS]),
-    receitas: regrasReceita.map(r => r[0]).concat([EXTRA]),
-    normalizar: s => (" " + s.toLowerCase() + " ").normalize("NFD").replace(/\p{Mn}+/gu, ""),
+    proprias: () => Banco.todos("categoria").filter(r => r.dono === Sessao.eu()).map(r => r.dados.pai ? r.dados.pai + SEP + r.dados.n : r.dados.n),
+    get todas() {
+      return CAT.arvore.filter(c => !c.receita).flatMap(c => [c.n].concat(c.subs.map(x => c.n + SEP + x.n)))
+        .concat(this.proprias().filter(p => p !== RECEITAS && !p.startsWith(RECEITAS + SEP)));
+    },
+    get receitas() {
+      return CAT.arvore.filter(c => c.receita).flatMap(c => c.subs.map(x => c.n + SEP + x.n)).concat(this.proprias().filter(p => p.startsWith(RECEITAS + SEP)));
+    },
+    normalizar: s => (" " + String(s).toLowerCase() + " ").normalize("NFD").replace(/\p{Mn}+/gu, ""),
+    canon: c => !c ? c : (CAT.legado[c] || c),
+    nomes(receita) {
+      const m = new Map(), validas = receita ? this.receitas : this.todas;
+      validas.forEach(cam => { const k = this.normalizar(cam.split(SEP).pop()).trim(); if (!m.has(k)) m.set(k, cam); });
+      validas.filter(c => !c.includes(SEP)).forEach(c => m.set(this.normalizar(c).trim(), c));
+      Object.entries(CAT.apelidos).forEach(([k, v]) => { if (validas.includes(v) && !m.has(k)) m.set(k, v); });
+      return m;
+    },
     escrita(desc, receita) {
-      const validas = receita ? this.receitas : this.todas;
+      const mapa = this.nomes(receita);
       const palavras = desc.trim().split(/\s+/).filter(Boolean);
-      const achar = trecho => {
-        const n = this.normalizar(trecho.replace(/^#/, "")).trim();
-        const a = apelidos.find(([c, lista]) => validas.includes(c) && lista.includes(n));
-        return a ? a[0] : null;
-      };
+      const achar = t => mapa.get(this.normalizar(t.replace(/^#/, "")).trim()) || null;
       for (let i = 0; i < palavras.length; i++) {
         const w = palavras[i];
         if (w.startsWith("#") && w.length > 1) { const c = achar(w); if (c) return [c, palavras.filter((_, k) => k !== i).join(" ")]; }
       }
-      for (let n = 2; n >= 1; n--) {
+      for (let n = 3; n >= 1; n--) {
         if (palavras.length <= n) continue;
         const c = achar(palavras.slice(-n).join(" "));
         if (c) return [c, palavras.slice(0, -n).join(" ")];
@@ -245,10 +244,23 @@
     },
     detectar(desc, receita) {
       const d = this.normalizar(desc || "");
-      for (const [c, ps] of (receita ? regrasReceita : regras)) if (ps.some(p => d.includes(p))) return c;
-      return receita ? EXTRA : OUTROS;
+      for (const [c, ps] of (receita ? CAT.regrasReceita : CAT.regras)) if (ps.some(p => casa(d, p))) return c;
+      return receita ? OUTRAS_RECEITAS : OUTROS;
     }
   };
+  /** Árvore para a interface, com as categorias criadas pela pessoa (id para poder apagar). */
+  function arvoreEstado() {
+    const arr = CAT.arvore.map(c => ({ n: c.n, e: c.e, cor: c.cor, receita: !!c.receita, subs: c.subs.map(x => ({ n: x.n, e: x.e })) }));
+    const pais = {}; arr.forEach(c => pais[c.n] = c);
+    Banco.todos("categoria").filter(r => r.dono === Sessao.eu())
+      .sort((x, y) => (x.dados.pai ? 1 : 0) - (y.dados.pai ? 1 : 0))
+      .forEach(r => {
+        const d = r.dados;
+        if (!d.pai) { if (!pais[d.n]) { const o = { n: d.n, e: d.e || "🏷️", cor: d.cor || "#C9C2DA", receita: false, subs: [], id: r.id }; pais[d.n] = o; arr.push(o); } }
+        else if (pais[d.pai]) pais[d.pai].subs.push({ n: d.n, e: d.e || "🏷️", id: r.id });
+      });
+    return arr;
+  }
 
   // Frases ditadas (Siri, ditado do teclado): igual ao objeto Fala do Android
   const Fala = {
@@ -287,7 +299,7 @@
       let desc = Fala.limparDescricao((t.slice(0, m.index) + t.slice(m.index + m[0].length)).replace(this.simbolos(), "").replace(/\s+/g, " "));
       if (!desc) desc = receita ? "Entrada" : "Sem descrição";
       const e = Categorias.escrita(desc, receita);
-      if (e) return { quando: agora(), valor, descricao: e[1], categoria: e[0], receita, escrita: true };
+      if (e && (desc.includes("#") || Categorias.detectar(desc, receita) !== e[0])) return { quando: agora(), valor, descricao: e[1], categoria: e[0], receita, escrita: true };
       return { quando: agora(), valor, descricao: desc, categoria: Categorias.detectar(desc, receita), receita, escrita: false };
     }
   };
@@ -310,7 +322,7 @@
 
     paraLanc(r) {
       const o = r.dados, rec = o.t === "r", d = o.d || "";
-      return { id: r.id, q: +o.q || 0, v: +o.v || 0, d, c: o.c || Categorias.detectar(d, rec), receita: rec, sh: r.sh, dono: r.dono, cf: o.cf || "" };
+      return { id: r.id, q: +o.q || 0, v: +o.v || 0, d, c: Categorias.canon(o.c) || Categorias.detectar(d, rec), receita: rec, sh: r.sh, dono: r.dono, cf: o.cf || "" };
     },
     lancamentos() { return Banco.todos("lanc").map(r => this.paraLanc(r)).sort((a, b) => b.q - a.q); },
     dadosLanc: g => ({ q: g.quando, v: g.valor, d: g.descricao, c: g.categoria, t: g.receita ? "r" : "d" }),
@@ -375,8 +387,8 @@
       this.novo("pago", c.sh, { conta: contaId, mes: oc.chave });
       const nome = c.vezes > 1 ? c.nome + " (" + oc.n + "/" + c.vezes + ")" : c.nome;
       const d = { q: agora(), v: valorReal != null ? valorReal : c.valor, d: nome, cf: contaId, oc: oc.chave };
-      if (c.entrada) { d.t = "r"; d.c = c.categoria || Categorias.detectar(c.nome, true); }
-      else { d.t = "d"; d.c = c.categoria || FIXAS; }
+      if (c.entrada) { d.t = "r"; d.c = Categorias.canon(c.categoria) || Categorias.detectar(c.nome, true); }
+      else { d.t = "d"; d.c = Categorias.canon(c.categoria) || Categorias.detectar(c.nome); }
       this.novo("lanc", c.sh, d);
       return true;
     },
@@ -489,7 +501,7 @@
         convitePendente: Sessao.convitePendente(), url: Sessao.url()
       },
       moeda: Ajustes.moeda(), gastos, contas, metas, refs, trocas,
-      categorias: Categorias.todas, categoriasReceita: Categorias.receitas,
+      categorias: Categorias.todas, categoriasReceita: Categorias.receitas, arvore: arvoreEstado(),
       hoje, diasNoMes: Datas.diasNoMes(), conquistasVistas: Ajustes.conquistas(),
       notif: false, agitar: false, sens: 1, premium: Armazem.premium(), bateriaLivre: true,
       pro: { servidor: Sessao.proServidor(), admin: Sessao.proAdmin(), expiraMs: Sessao.proExpira(), pendente: Sessao.proPendente() },
@@ -926,6 +938,13 @@
       Armazem.novo("feedback", false, { tipo, t: String(texto).trim().slice(0, 4000), q: agora(), versao: INFO.versao,
         aparelho: navigator.userAgent.slice(0, 160), sistema: INFO.plataforma });
       return resp(true);
+    },
+    salvarCategoria(nome, pai, emoji, cor) {
+      const n = String(nome || "").trim().replace(/›/g, "-").slice(0, 40);
+      if (!n) return resp(false, "Escreva o nome da categoria");
+      const cam = pai ? pai + SEP + n : n;
+      if (Categorias.todas.concat(Categorias.receitas).some(c => Categorias.normalizar(c) === Categorias.normalizar(cam))) return resp(false, "Essa categoria já existe");
+      return mudar(() => Armazem.novo("categoria", false, { n, pai: pai || "", e: (emoji || "").trim() || "🏷️", cor: cor || "#C9C2DA" }));
     },
     copiar(texto) { if (IOS) nativo("copiar", { texto }); else if (navigator.clipboard) navigator.clipboard.writeText(texto); return resp(true, "Copiado"); },
     alternarPaga(id, valorReal, chave) {

@@ -299,6 +299,24 @@ nav .fab svg{width:30px;height:30px;stroke:var(--marca-tx);stroke-width:2.6}
 .chips.rolar{flex-wrap:nowrap;overflow-x:auto;margin:0 0 10px;padding:0 18px;scrollbar-width:none;overscroll-behavior-x:contain}
 .chips.rolar::-webkit-scrollbar{display:none}
 .chips.rolar .chip{flex-shrink:0;white-space:nowrap}
+.chips.sub-cat{margin-top:-4px}
+.campo select{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:var(--ink);color:var(--text);font:inherit}
+.cores-cat{gap:10px}
+.cor-cat{width:34px;height:34px;border-radius:50%;border:3px solid transparent}
+.cor-cat.on{border-color:var(--text)}
+.icones-cat{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin:0 18px 6px}
+.icones-cat button{aspect-ratio:1;border-radius:12px;background:var(--surface);font-size:1.15rem}
+.icones-cat button.on{background:var(--surface2);box-shadow:0 0 0 2px var(--mango) inset}
+.arvore-cat{margin:0 18px 16px;padding:8px 10px;border-radius:20px;background:var(--surface)}
+.ac-pai,.ac-sub{display:flex;align-items:center;gap:10px;padding:7px 4px}
+.ac-pai b{flex:1;text-transform:uppercase;font-size:.82rem;letter-spacing:.02em}
+.ac-sub{padding-left:10px;font-size:.9rem}
+.ac-sub span:nth-child(3){flex:1}
+.ac-seta{color:var(--muted)}
+.ac-ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb, var(--c) 28%, transparent);font-size:.95rem}
+.ac-apagar{padding:4px 6px;opacity:.7}
+.chips.sub-cat .chip{padding:6px 11px;font-size:.82rem;background:var(--ink)}
+.chips.sub-cat .chip.on{background:var(--text)}
 .chip.auto{border:1px dashed var(--muted)} .chip.auto.on{border-color:transparent}
 .dica-cat{margin:-4px 18px 10px;font-size:.8rem;color:var(--muted)}
 /* ---------- Roda de rolagem (categoria) ---------- */
@@ -440,14 +458,21 @@ const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.m
 let S = null, aba = "feed", modo = (() => { try { return localStorage.getItem("fin.modo") || "total"; } catch(e){ return "total"; } })(), limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
 let extr = {ano:0, mes:0, tipo:"todas", ordem:"data", busca:""};
 
-const CATS = {
-  "Mercado":["🛒","#4CD6A0"], "Alimentação":["🍽️","#FFB547"], "Transporte":["🚗","#5DB7FF"],
-  "Moradia":["🏠","#B38CFF"], "Saúde":["💊","#FF6B5B"], "Lazer":["🎉","#FF5E9E"],
-  "Compras":["🛍️","#3DD9D6"], "Educação":["📚","#F2D45C"], "Hábitos":["🔁","#FF9F6B"],
-  "Contas fixas":["📄","#A59FB8"], "Outros":["✨","#C9C2DA"],
-  "Salário":["💼","#4CD6A0"], "Reembolso":["↩️","#4CD6A0"], "Rendimentos":["📈","#4CD6A0"], "Extra":["💶","#4CD6A0"]
-};
-const cat = c => CATS[c] || CATS["Outros"];
+/* Categorias em dois níveis ("Casa › Luz"), vindas de assets/categorias.json + as criadas pela pessoa */
+const SEPC = " › ";
+const LEGADO_CAT = {"Mercado":"Alimentação › Supermercado", "Compras":"Gastos Pessoais", "Hábitos":"Gastos Pessoais", "Moradia":"Casa",
+  "Lazer":"Lazer - Passeios", "Contas fixas":"Casa", "Salário":"Receitas › Salário", "Reembolso":"Receitas › Outras Receitas",
+  "Rendimentos":"Receitas › Outras Receitas", "Extra":"Receitas › Outras Receitas"};
+const OUTRAS_REC = "Receitas › Outras Receitas";
+let CATMAPA = {};
+function montarCats(){
+  CATMAPA = {};
+  (S.arvore || []).forEach(c => { CATMAPA[c.n] = [c.e, c.cor]; c.subs.forEach(x => CATMAPA[c.n + SEPC + x.n] = [x.e, c.cor]); });
+}
+const canonCat = c => LEGADO_CAT[c] || c || "";
+const catPai = c => canonCat(c).split(SEPC)[0];
+const catNome = c => canonCat(c).split(SEPC).pop();
+const cat = c => { c = canonCat(c); return CATMAPA[c] || CATMAPA[catPai(c)] || ["🏷️", "#C9C2DA"]; };
 const ICON = {
   coracao:'<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.2 0 3.6 1.2 5.3 3.2 1.7-2 3.1-3.2 5.3-3.2 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z"/></svg>',
   balao:'<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.8A8 8 0 1 1 21 12z"/></svg>',
@@ -479,6 +504,9 @@ function visivel(x){
 function carregar(){ S = JSON.parse(ponte.estado()); preparar(); }
 function aplicar(texto){ const r = JSON.parse(texto); S = r.estado; preparar(); return r; }
 function preparar(){
+  montarCats();
+  S.gastos.forEach(g => g.c = canonCat(g.c));
+  S.contas.forEach(c => { if (c.c) c.c = canonCat(c.c); });
   fmt = new Intl.NumberFormat(S.moeda === "BRL" ? "pt-BR" : "pt-PT", {style:"currency", currency:S.moeda});
   S.todos = S.gastos;
   S.meusLanc = S.todos.filter(meu);
@@ -606,7 +634,7 @@ function numerosMes(){
   const desp = S.desp.filter(g => noMes(g.q, ano, mes));
   const saiu = desp.reduce((a,g) => a+g.v, 0);
   const entrou = S.rec.filter(g => noMes(g.q, ano, mes)).reduce((a,g) => a+g.v, 0);
-  const variavel = desp.filter(g => g.c !== "Contas fixas").reduce((a,g) => a+g.v, 0);
+  const variavel = desp.filter(g => !g.cf).reduce((a,g) => a+g.v, 0);
   const restante = variavel / S.hoje * (S.diasNoMes - S.hoje);
   const pend = S.contasMes.filter(c => !c.paga);
   const abertas = c => (c.ocs || []).filter(o => !o.paga).length;
@@ -951,10 +979,10 @@ function heroiAtual(){
 }
 function insightAtual(){
   let h = "";
-  const doMes = S.desp.filter(g => noMes(g.q, MES_ATUAL.ano, MES_ATUAL.mes) && g.c !== "Contas fixas");
+  const doMes = S.desp.filter(g => noMes(g.q, MES_ATUAL.ano, MES_ATUAL.mes) && !g.cf);
   if (doMes.length >= 3){
     const soma = {};
-    doMes.forEach(g => soma[g.c] = (soma[g.c]||0) + g.v);
+    doMes.forEach(g => soma[catPai(g.c)] = (soma[catPai(g.c)]||0) + g.v);
     const [topo, v] = Object.entries(soma).sort((a,b) => b[1]-a[1])[0];
     const pct = Math.round(v / doMes.reduce((a,g) => a+g.v, 0) * 100);
     h += '<div class="insight">'+cat(topo)[0]+' <strong>'+esc(topo)+'</strong> levou '+din(v)+' este mês, '+pct+'% do dia a dia'
@@ -1035,8 +1063,13 @@ const compacto = v => v >= 1000 ? (Math.round(v/100)/10).toString().replace(".",
 function passoEixo(max){ const b = Math.pow(10, Math.floor(Math.log10(max || 1))); const n = max / b; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * b; }
 
 function graficoCategorias(){
-  const itens = saidasDoMes(extr.ano, extr.mes), soma = {};
-  itens.forEach(g => soma[g.c] = (soma[g.c] || 0) + g.v);
+  // por categoria principal; ao tocar, mostra as subcategorias dela
+  const itens = saidasDoMes(extr.ano, extr.mes), soma = {}, porSub = {};
+  itens.forEach(g => {
+    const p = catPai(g.c), sub = canonCat(g.c).includes(SEPC) ? catNome(g.c) : "Geral";
+    soma[p] = (soma[p] || 0) + g.v;
+    (porSub[p] = porSub[p] || {})[sub] = (porSub[p][sub] || 0) + g.v;
+  });
   let lista = Object.entries(soma).sort((a,b) => b[1] - a[1]);
   const total = lista.reduce((a,x) => a + x[1], 0);
   if (!total) return {svg:'<p class="nota" style="margin:18px 0;text-align:center">Sem saídas neste mês.</p>', ler:""};
@@ -1058,7 +1091,9 @@ function graficoCategorias(){
     + '<div class="rosca-lista">'+lista.map(([c, v], i) => '<button class="rosca-item" data-v="'+i+'"><i style="background:'+cor(c)+'"></i>'
       + '<span>'+(c === "Resto" ? "" : cat(c)[0]+" ")+esc(c)+'</span><small>'+Math.round(v/total*100)+'%</small>'
       + '<div class="barra"><u style="width:'+(v/lista[0][1]*100).toFixed(1)+'%;background:'+cor(c)+'"></u></div></button>').join("")+'</div></div>';
-  return {svg, dados: lista.map(([c, v]) => '<b>'+(c === "Resto" ? "" : cat(c)[0]+" ")+esc(c)+'</b>: '+din(v)+' ('+Math.round(v/total*100)+'%)'),
+  const detalhe = c => { const subs = Object.entries(porSub[c] || {}).sort((a,b) => b[1]-a[1]);
+    return subs.length > 1 || (subs[0] && subs[0][0] !== "Geral") ? '<br>'+subs.slice(0, 4).map(([n, v]) => esc(n)+' '+din(v)).join(' · ') : ''; };
+  return {svg, dados: lista.map(([c, v]) => '<b>'+(c === "Resto" ? "" : cat(c)[0]+" ")+esc(c)+'</b>: '+din(v)+' ('+Math.round(v/total*100)+'%)'+(c === "Resto" ? "" : detalhe(c))),
     ler: 'Maior: <b>'+esc(lista[0][0])+'</b> · '+din(lista[0][1])};
 }
 
@@ -1166,7 +1201,7 @@ function post(g){
   const ult = g.cm.length ? g.cm[g.cm.length-1] : null;
   return '<article class="post" data-id="'+g.id+'"'+(meu(g) ? '' : ' data-alheio="1"')+'><div class="fundo-apagar">Apagar</div><div class="corpo">'
     + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
-    + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(g.c)+'</button></header>'
+    + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(catNome(g.c))+'</button></header>'
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
     + '<footer><button class="acao'+(g.l ? " curtido" : "")+'" data-curtir aria-label="Curtir">'+ICON.coracao+'<span>'+(g.lc || "")+'</span></button>'
@@ -1190,7 +1225,7 @@ function projetadas(a, m){
     const pagas = atual ? new Set((c.ocs || []).filter(o => o.paga).map(o => o.chave)) : new Set();
     ocorrencias(c, a, m).filter(o => !pagas.has(o.chave)).forEach(o => lista.push({prev:true, id:c.id, chave:o.chave, q:new Date(o.d.getFullYear(), o.d.getMonth(), o.d.getDate(), 12).getTime(), v:c.v,
       d:c.n + (c.vezes > 1 ? " ("+o.n+"/"+c.vezes+")" : "") + (c.var ? " ≈" : ""),
-      c:c.c || (c.e ? (/sal[aá]rio|ordenado|vencimento/i.test(c.n) ? "Salário" : "Extra") : "Contas fixas"),
+      c:c.c || (c.e ? (/sal[aá]rio|ordenado|vencimento/i.test(c.n) ? "Receitas › Salário" : OUTRAS_REC) : "Casa"),
       t:c.e ? "r" : "d", dono:c.dono, sh:c.sh}));
   });
   return lista;
@@ -1203,7 +1238,7 @@ function linhaExtrato(x){
   return '<button class="row'+(x.prev ? " prevista" : "")+'" '+(x.prev ? 'data-conta="'+x.id+'"' : 'data-abrir="'+x.id+'"')+'>'
     + '<span class="data"><b>'+d.getDate()+'</b><small>'+MESES[d.getMonth()]+'</small></span>'
     + '<span class="av" style="--c:'+cor+'">'+emoji+'</span>'
-    + '<span class="info"><b>'+esc(x.d)+'</b><small>'+esc(x.c)+(x.prev ? " · prevista" : "")+quem+'</small></span>'
+    + '<span class="info"><b>'+esc(x.d)+'</b><small>'+esc(catNome(x.c))+(x.prev ? " · prevista" : "")+quem+'</small></span>'
     + '<span class="v'+(r ? " pos" : "")+'">'+(r ? "+" : "−")+din(x.v)+'</span></button>';
 }
 function listaExtrato(todos){
@@ -1445,7 +1480,43 @@ function pagCookies(){
   ]);
 }
 
+/* ----- Categorias: criar as próprias (pai, nome, cor, ícone) e ver a árvore toda ----- */
+const CORES_CAT = ["#4CD6A0","#FFB547","#4FA3FF","#B38CFF","#FF7A8A","#FF5E9E","#3DD9D6","#F2D45C","#FF9F6B","#C98B5A","#7C8CFF","#C9C2DA"];
+const ICONES_CAT = ["🏷️","🛒","🍔","☕","🍺","🏠","💡","🚗","⛽","🚌","✈️","🏥","💊","🎓","📚","🎮","🎬","🎁","👶","🐶","💼","💻","📱","🧾","💳","🏦","🤝","🎉","🧴","👗","💇","🏋️","⚽","🎵","🛠️","🌱"];
+let novaCat = {pai:"", cor:CORES_CAT[0], e:"🏷️"};
+function pagCategorias(){
+  const arv = S.arvore || [];
+  let h = '<p class="nota">Se preferir, crie as suas próprias categorias. Elas aparecem ao lançar e nos gráficos.</p>'
+    + '<label class="campo"><span>Categoria pai</span><select id="ncPai"><option value="">Sem categoria pai (nova principal)</option>'
+    + arv.map(c => '<option value="'+esc(c.n)+'"'+(novaCat.pai === c.n ? " selected" : "")+'>'+c.e+' '+esc(c.n)+'</option>').join("")+'</select></label>'
+    + '<label class="campo"><span>Nome da categoria</span><input id="ncNome" maxlength="40" placeholder="Ex.: Farmácia do bairro, Filhos, Carro 2"></label>';
+  if (!novaCat.pai) h += '<div class="rotulo">Cor</div><div class="chips cores-cat">'+CORES_CAT.map(c => '<button class="cor-cat'+(novaCat.cor === c ? " on" : "")+'" data-nc-cor="'+c+'" style="background:'+c+'" aria-label="Cor"></button>').join("")+'</div>';
+  h += '<div class="rotulo">Ícone</div><div class="icones-cat">'+ICONES_CAT.map(e => '<button class="'+(novaCat.e === e ? "on" : "")+'" data-nc-e="'+e+'">'+e+'</button>').join("")+'</div>'
+    + '<button class="btn" id="ncAdd">Adicionar</button>';
+  h += '<div class="grupo">Todas as categorias</div><div class="arvore-cat">';
+  arv.forEach(c => {
+    h += '<div class="ac-pai"><span class="ac-ic" style="--c:'+c.cor+'">'+c.e+'</span><b>'+esc(c.n)+'</b>'+(c.id ? '<button class="ac-apagar" data-apagar-cat="'+c.id+'" aria-label="Apagar">🗑</button>' : '')+'</div>';
+    c.subs.forEach(x => { h += '<div class="ac-sub"><span class="ac-seta">→</span><span class="ac-ic" style="--c:'+c.cor+'">'+x.e+'</span><span>'+esc(x.n)+'</span>'+(x.id ? '<button class="ac-apagar" data-apagar-cat="'+x.id+'" aria-label="Apagar">🗑</button>' : '')+'</div>'; });
+  });
+  return h + '</div>';
+}
+function ligarCategorias(){
+  const pai = $("#ncPai"); if (!pai) return;
+  pai.onchange = () => { novaCat.pai = pai.value; const nome = $("#ncNome").value; render(false); $("#ncNome").value = nome; };
+  $$("[data-nc-cor]").forEach(b => b.onclick = () => { novaCat.cor = b.dataset.ncCor; $$("[data-nc-cor]").forEach(x => x.classList.toggle("on", x === b)); vibrar(); });
+  $$("[data-nc-e]").forEach(b => b.onclick = () => { novaCat.e = b.dataset.ncE; $$("[data-nc-e]").forEach(x => x.classList.toggle("on", x === b)); vibrar(); });
+  $("#ncAdd").onclick = () => {
+    const r = aplicar(ponte.salvarCategoria($("#ncNome").value, novaCat.pai, novaCat.e, novaCat.cor));
+    if (!r.ok){ aviso(r.msg || "Não foi possível criar"); return; }
+    vibrar(); aviso("Categoria criada"); render(false);
+  };
+  $$("[data-apagar-cat]").forEach(b => b.onclick = () => confirmar("Apagar categoria?", "Os lançamentos que já a usam continuam com o mesmo nome.", "Apagar", () => {
+    aplicar(ponte.apagar(b.dataset.apagarCat)); vibrar(); render(false);
+  }));
+}
+
 const PAGINAS = {
+  categorias: ["Categorias", pagCategorias],
   conta: ["Conta e dados pessoais", pagConta], casal: ["Casal", () => secaoCasal().replace('<h3 class="h3">Casal</h3>', '')],
   metricas: ["Métricas e conquistas", pagMetricas], experiencia: ["Visualização e filtros", pagExperiencia], plano: ["Plano", pagPlano],
   rapido: ["Lançamento rápido", pagRapido], notificacoes: ["Notificações", pagNotificacoes], permissoes: ["Permissões", pagPermissoes],
@@ -1472,6 +1543,7 @@ function telaPerfil(){
     + itemMenu("casal", "💞", "Casal", !S.premium ? "Premium" : temCasal() ? "Com "+esc(S.parceiro.nome) : S.nuvem.casal ? "À espera do convite" : "Convidar parceiro(a)")
     + itemMenu("metricas", "🏅", "Métricas e conquistas", "Nível "+nv.n+" · "+CONQUISTAS.filter(c => c.ok()).length+" de "+CONQUISTAS.length+" conquistas")
     + itemMenu("experiencia", "🎛️", "Visualização e filtros", "Moeda, lista e gráfico")
+    + itemMenu("categorias", "🏷️", "Categorias", (S.arvore || []).length+" principais · "+(S.arvore || []).reduce((a,c) => a + c.subs.length, 0)+" subcategorias")
     + itemMenu("plano", "⭐", "Plano", PRO().admin ? "Admin" : S.premium ? (PRO().servidor && PRO().expiraMs ? "Premium até "+dataLonga(PRO().expiraMs) : "Premium") : PRO().pendente ? "Pedido enviado" : "Base")
     + (PRO().admin ? itemMenu("admin", "🛠️", "Painel admin", "Pedidos, usuários, códigos e configurações") : '')
     + '</div>';
@@ -1554,6 +1626,7 @@ function ligarResto(){
     perfilPag = k; window.scrollTo(0, 0); render(false);
   });
   const pv = $("#pagVoltar"); if (pv) pv.onclick = () => { perfilPag = null; render(false); };
+  ligarCategorias();
   $$("[data-vpad]").forEach(b => b.onclick = () => { vista = b.dataset.vpad; gravarPref("vista", vista); render(false); });
   $$("[data-gpad]").forEach(b => b.onclick = () => { grafVista = b.dataset.gpad; gravarPref("graf", grafVista); render(false); });
   $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
@@ -1818,7 +1891,7 @@ function editarNoCartao(el, id){
     if (nv > 0 && Math.abs(nv - conta.v) >= 0.005) mud.push("valor <b>"+din(nv)+"</b>");
     const nome = serieNome(d);
     if (nome && nome !== conta.n) mud.push("nome <b>"+esc(nome)+"</b>");
-    if (escolhida !== (conta.c || "")) mud.push("categoria <b>"+esc(escolhida)+"</b>");
+    if (escolhida !== (conta.c || "")) mud.push("categoria <b>"+esc(catNome(escolhida))+"</b>");
     const dia = dt ? +dt.split("-")[2] : 0;
     const mudaDia = dia && dia !== new Date(g.q).getDate();
     if (mudaDia && mensal) mud.push("todo dia <b>"+dia+"</b>");
@@ -1831,7 +1904,7 @@ function editarNoCartao(el, id){
     const [emoji, cor] = cat(escolhida);
     corpo.innerHTML = '<div class="ed-topo"><span class="av" style="--c:'+cor+'">'+emoji+'</span>'
       + '<div class="seg"><button data-r="0" class="'+(receita ? "" : "on")+'">Saída</button><button data-r="1" class="'+(receita ? "on" : "")+'">Entrada</button></div>'
-      + '<button class="tag" style="--c:'+cor+'" data-ed-cat>'+esc(escolhida)+'</button></div>'
+      + '<button class="tag" style="--c:'+cor+'" data-ed-cat>'+esc(catNome(escolhida))+'</button></div>'
       + (conta ? '<div class="ed-escopo"><small>🔁 Faz parte de “'+esc(conta.n)+'” · '+esc(descConta(conta))+'</small>'
         + (podeSerie ? '<div class="seg"><button data-esc="este" class="'+(escopo === "este" ? "on" : "")+'">Só este</button><button data-esc="prox" class="'+(escopo === "prox" ? "on" : "")+'">Este e os próximos</button></div>' : '')
         + '<span class="nota-esc">'+(podeSerie ? notaEscopo() : "Só quem criou a conta pode mudar as próximas; aqui muda só este lançamento.")+'</span></div>' : '')
@@ -1849,7 +1922,7 @@ function editarNoCartao(el, id){
     $$("[data-r]", corpo).forEach(b => b.onclick = () => {
       receita = b.dataset.r === "1";
       const lista = receita ? S.categoriasReceita : S.categorias;
-      if (!lista.includes(escolhida)) escolhida = receita ? "Extra" : "Outros";
+      if (!lista.includes(escolhida)) escolhida = receita ? OUTRAS_REC : "Outros";
       desenhar();
     });
     $("[data-ed-cat]", corpo).onclick = () => {
@@ -1989,8 +2062,44 @@ function roda(el, itens, marcada, aoMudar){
   return { texto: (i, t) => { if (els[i]) els[i].innerHTML = t; } };
 }
 function itensCategoria(receita, comAuto){
-  const lista = receita ? S.categoriasReceita : S.categorias;
-  return (comAuto ? [{v: "", t: "✨ Automática"}] : []).concat(lista.map(c => ({v: c, t: cat(c)[0] + " " + esc(c)})));
+  const lista = [];
+  (S.arvore || []).filter(c => !!c.receita === receita).forEach(c => {
+    if (!receita) lista.push({v: c.n, t: c.e + " " + esc(c.n)});
+    c.subs.forEach(x => lista.push({v: c.n + SEPC + x.n, t: (receita ? "" : "&nbsp;&nbsp;&nbsp;↳ ") + x.e + " " + esc(x.n)}));
+  });
+  return (comAuto ? [{v: "", t: "✨ Automática"}] : []).concat(lista);
+}
+/** Duas filas de chips: categoria principal e, por baixo, as subcategorias dela. */
+function chipsCat(receita, escolhida, comAuto){
+  const chip = (v, t, on, extra) => '<button class="chip'+(extra || "")+(on ? " on" : "")+'" data-c="'+esc(v)+'">'+t+'</button>';
+  const arv = S.arvore || [];
+  const auto = comAuto ? chip("", "✨ Automática", !escolhida, " auto") : "";
+  if (receita){
+    const rec = arv.find(c => c.receita) || {n:"Receitas", subs:[]};
+    return {pais: auto + rec.subs.map(x => chip(rec.n + SEPC + x.n, x.e+" "+esc(x.n), escolhida === rec.n + SEPC + x.n)).join(""), subs: ""};
+  }
+  const pai = escolhida ? catPai(escolhida) : "";
+  const p = arv.find(c => c.n === pai && !c.receita);
+  return {
+    pais: auto + arv.filter(c => !c.receita).map(c => chip(c.n, c.e+" "+esc(c.n), pai === c.n)).join(""),
+    subs: p && p.subs.length ? chip(p.n, "Geral", escolhida === p.n) + p.subs.map(x => chip(p.n + SEPC + x.n, x.e+" "+esc(x.n), escolhida === p.n + SEPC + x.n)).join("") : ""
+  };
+}
+/** Liga as duas filas: tocar de novo no escolhido volta ao automático (se houver). */
+function ligarChipsCat(f, idPais, idSubs, receita, obter, definir, comAuto){
+  const desenhar = () => {
+    const h = chipsCat(receita(), obter(), comAuto);
+    const a = $("#"+idPais, f), b = $("#"+idSubs, f);
+    a.innerHTML = h.pais; b.innerHTML = h.subs; b.style.display = h.subs ? "" : "none";
+    [a, b].forEach(fila => { const on = $(".chip.on", fila); if (on) fila.scrollLeft = on.offsetLeft - fila.offsetLeft - 18; });
+    $$("#"+idPais+" .chip, #"+idSubs+" .chip", f).forEach(c => c.onclick = () => {
+      const v = c.dataset.c;
+      definir(obter() === v && comAuto ? "" : v);
+      vibrar(); desenhar();
+    });
+  };
+  desenhar();
+  return desenhar;
 }
 
 /* ---------- Voz: números por extenso junto da moeda ("cinco euros e cinquenta") ---------- */
@@ -2032,7 +2141,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     + (typeof ponte.ouvir === "function" ? '<button class="mic" id="mic" aria-label="Lançar por voz"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>' : '')
     + '</div>'
     + '<div class="chips" id="quando"></div><div id="quandoBox"></div>'
-    + '<div class="chips rolar" id="chipsCat"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
+    + '<div class="chips rolar" id="chipsCat"></div><div class="chips rolar sub-cat" id="chipsSub"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
     + '<div id="nosBox"></div>'
     + '<button class="btn" id="salvarGasto">Adicionar</button>'
     + (!RAPIDO && typeof ponte.escolherFatura === "function" ? '<button class="btn sec" id="lerFatura">📄 Ler fatura (PDF ou foto)</button>' : '')
@@ -2076,12 +2185,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
       inp.placeholder = receita ? "1090 salário" : quando === "repetir" ? "400 renda" : "5,50 café";
-      $("#chipsCat", f).innerHTML = itensCategoria(receita, true).map(it => '<button class="chip'+(it.v ? "" : " auto")+(it.v === escolhida ? " on" : "")+'" data-c="'+esc(it.v)+'">'+it.t+'</button>').join("");
-      $$("#chipsCat .chip", f).forEach(c => c.onclick = () => {
-        escolhida = escolhida === c.dataset.c ? "" : c.dataset.c;   // tocar de novo volta ao automático
-        $$("#chipsCat .chip", f).forEach(x => x.classList.toggle("on", x.dataset.c === escolhida));
-        vibrar(); previa();
-      });
+      ligarChipsCat(f, "chipsCat", "chipsSub", () => receita, () => escolhida, v => { escolhida = v; previa(); }, true);
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
       montarQuando();
@@ -2091,11 +2195,11 @@ function folhaNovo(receitaInicial, quandoInicial){
       const d = valorDigitado();
       if (d && d.r && !receita){ receita = true; escolhida = ""; montar(); return; }
       const auto = $('#chipsCat .chip[data-c=""]', f);
-      if (auto) auto.innerHTML = !d ? "✨ Automática" : (d.e ? "✍️ " : cat(d.c)[0] === "✨" ? "" : "✨ ") + cat(d.c)[0] + " " + esc(d.c);
+      if (auto) auto.innerHTML = !d ? "✨ Automática" : (d.e ? "✍️ " : cat(d.c)[0] === "✨" ? "" : "✨ ") + cat(d.c)[0] + " " + esc(catNome(d.c));
       const dica = $(".dica-cat", f);
       if (dica) dica.textContent = !d ? "Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”"
         : escolhida ? "“"+d.d+"” em "+escolhida+" (escolhida)"
-        : "“"+d.d+"” em "+d.c+(d.e ? " (escrita por você)" : " (identificada)");
+        : "“"+d.d+"” em "+canonCat(d.c)+(d.e ? " (escrita por você)" : " (identificada)");
       $("#prevEq", f).innerHTML = d ? (receita ? '<div class="eq"><span class="pos">Entrada de '+din(d.v)+'</span></div>' : equivalencia(d.v)) : "";
       rotuloBotao();
     };
@@ -2192,7 +2296,7 @@ function folhaFatura(f){
   let prestacoes = f.totalParcelas > 0;
   let variavel = !!f.variavel;
   let paga = !!f.debitoDireto && data <= hoje;
-  let cat = f.categoria || "Contas fixas";
+  let cat = canonCat(f.categoria) || "Outros";
   let sh = modo === "nos";
   const PMS = [[0,"Só esta"],[1,"Todo mês"],[2,"2 em 2 meses"],[3,"3 em 3 meses"],[6,"6 em 6 meses"],[12,"Todo ano"]];
   abrirFolha('<h3>📄 Fatura'+(f.emissor !== "Fatura" ? ' '+esc(f.emissor) : '')+'</h3><div id="fCorpo"></div>', fo => {
@@ -2218,7 +2322,7 @@ function folhaFatura(f){
       }
       h += chave("fPaga", "Já está paga", data < hoje && !f.debitoDireto ? "A data já passou: marque se já pagou" : (f.debitoDireto ? "Débito direto: é paga sozinha na data" : ""), paga);
       if (!usarExistente){
-        h += '<div class="rotulo">Categoria</div><div class="chips rolar">'+S.categorias.map(c => '<button class="chip'+(c === cat ? " on" : "")+'" data-fcat="'+esc(c)+'">'+cat_(c)+'</button>').join("")+'</div>';
+        h += '<div class="rotulo">Categoria</div><div class="chips rolar" id="fCats"></div><div class="chips rolar sub-cat" id="fSubs"></div>';
         h += chaveNos(sh);
       }
       h += '<button class="btn" id="fSalvar">'+(usarExistente ? 'Registar em '+esc(existente.n) : pm ? 'Criar conta' : 'Adicionar fatura')+'</button>'
@@ -2233,7 +2337,7 @@ function folhaFatura(f){
         if (k && !S.premium){ folhaPremium("Contas que se repetem (mensais, a cada 2, 3 ou 6 meses, anuais e prestações) são um recurso Premium."); return; }
         guardar(); pm = k; montar();
       });
-      $$("[data-fcat]", fo).forEach(b => b.onclick = () => { guardar(); cat = b.dataset.fcat; montar(); });
+      if ($("#fCats", fo)) ligarChipsCat(fo, "fCats", "fSubs", () => false, () => cat, v => { cat = v; }, false);
       const tg = (id, f2) => { const e = $("#"+id, fo); if (e) e.onclick = () => { guardar(); f2(); montar(); }; };
       tg("fPrest", () => prestacoes = !prestacoes);
       tg("fVar", () => variavel = !variavel);
@@ -2300,7 +2404,7 @@ function folhaEditar(id){
     $$(".seg button", f).forEach(b => b.onclick = () => {
       receita = b.dataset.r === "1";
       const lista = receita ? S.categoriasReceita : S.categorias;
-      if (!lista.includes(escolhida)) escolhida = receita ? "Extra" : "Outros";
+      if (!lista.includes(escolhida)) escolhida = receita ? OUTRAS_REC : "Outros";
       montar();
     });
     montar();

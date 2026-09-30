@@ -35,37 +35,37 @@ object LeitorFatura {
     // Empresas conhecidas: nome a mostrar, categoria e se o valor costuma variar
     private data class Marca(val chaves: List<String>, val nome: String, val cat: String, val variavel: Boolean, val pm: Int)
     private val marcas = listOf(
-        Marca(listOf("edp comercial", "edp "), "EDP", "Moradia", true, 1),
-        Marca(listOf("galp"), "Galp", "Moradia", true, 1),
-        Marca(listOf("goldenergy"), "Goldenergy", "Moradia", true, 1),
-        Marca(listOf("endesa"), "Endesa", "Moradia", true, 1),
-        Marca(listOf("iberdrola"), "Iberdrola", "Moradia", true, 1),
-        Marca(listOf("repsol"), "Repsol", "Moradia", true, 1),
-        Marca(listOf("su eletricidade", "su electricidade"), "SU Eletricidade", "Moradia", true, 1),
-        Marca(listOf("meo", "altice"), "MEO", "Moradia", false, 1),
-        Marca(listOf("nos comunicacoes", "nos.pt", "nos "), "NOS", "Moradia", false, 1),
-        Marca(listOf("vodafone"), "Vodafone", "Moradia", false, 1),
-        Marca(listOf("nowo"), "NOWO", "Moradia", false, 1),
-        Marca(listOf("digi portugal", "digi "), "DIGI", "Moradia", false, 1),
-        Marca(listOf("epal"), "EPAL", "Moradia", true, 1),
-        Marca(listOf("smas", "aguas de ", "aguas do ", "indaqua", "servicos municipalizados"), "Água", "Moradia", true, 1),
-        Marca(listOf("fidelidade"), "Fidelidade", "Contas fixas", false, 0),
-        Marca(listOf("tranquilidade"), "Tranquilidade", "Contas fixas", false, 0),
-        Marca(listOf("generali"), "Generali", "Contas fixas", false, 0),
-        Marca(listOf("allianz"), "Allianz", "Contas fixas", false, 0),
-        Marca(listOf("ageas"), "Ageas", "Contas fixas", false, 0),
-        Marca(listOf("liberty seguros"), "Liberty Seguros", "Contas fixas", false, 0),
-        Marca(listOf("zurich"), "Zurich", "Contas fixas", false, 0),
-        Marca(listOf("ok! teleseguros", "ok teleseguros"), "OK! Teleseguros", "Contas fixas", false, 0),
-        Marca(listOf("via verde"), "Via Verde", "Transporte", true, 1),
-        Marca(listOf("netflix"), "Netflix", "Lazer", false, 1),
-        Marca(listOf("spotify"), "Spotify", "Lazer", false, 1),
-        Marca(listOf("fitness hut"), "Fitness Hut", "Saúde", false, 1),
-        Marca(listOf("solinca"), "Solinca", "Saúde", false, 1),
-        Marca(listOf("holmes place"), "Holmes Place", "Saúde", false, 1),
-        Marca(listOf("cofidis"), "Cofidis", "Contas fixas", false, 1),
-        Marca(listOf("cetelem"), "Cetelem", "Contas fixas", false, 1),
-        Marca(listOf("unibanco"), "Unibanco", "Contas fixas", false, 1)
+        Marca(listOf("edp comercial", "edp "), "EDP", "Casa › Luz", true, 1),
+        Marca(listOf("galp"), "Galp", "Casa › Luz", true, 1),
+        Marca(listOf("goldenergy"), "Goldenergy", "Casa › Luz", true, 1),
+        Marca(listOf("endesa"), "Endesa", "Casa › Luz", true, 1),
+        Marca(listOf("iberdrola"), "Iberdrola", "Casa › Luz", true, 1),
+        Marca(listOf("repsol"), "Repsol", "Casa › Luz", true, 1),
+        Marca(listOf("su eletricidade", "su electricidade"), "SU Eletricidade", "Casa › Luz", true, 1),
+        Marca(listOf("meo", "altice"), "MEO", "Casa › Internet", false, 1),
+        Marca(listOf("nos comunicacoes", "nos.pt", "nos "), "NOS", "Casa › Internet", false, 1),
+        Marca(listOf("vodafone"), "Vodafone", "Casa › Internet", false, 1),
+        Marca(listOf("nowo"), "NOWO", "Casa › Internet", false, 1),
+        Marca(listOf("digi portugal", "digi "), "DIGI", "Casa › Internet", false, 1),
+        Marca(listOf("epal"), "EPAL", "Casa › Água", true, 1),
+        Marca(listOf("smas", "aguas de ", "aguas do ", "indaqua", "servicos municipalizados"), "Água", "Casa › Água", true, 1),
+        Marca(listOf("fidelidade"), "Fidelidade", "", false, 0),
+        Marca(listOf("tranquilidade"), "Tranquilidade", "", false, 0),
+        Marca(listOf("generali"), "Generali", "", false, 0),
+        Marca(listOf("allianz"), "Allianz", "", false, 0),
+        Marca(listOf("ageas"), "Ageas", "", false, 0),
+        Marca(listOf("liberty seguros"), "Liberty Seguros", "", false, 0),
+        Marca(listOf("zurich"), "Zurich", "", false, 0),
+        Marca(listOf("ok! teleseguros", "ok teleseguros"), "OK! Teleseguros", "", false, 0),
+        Marca(listOf("via verde"), "Via Verde", "Transporte › Pedágio", true, 1),
+        Marca(listOf("netflix"), "Netflix", "Casa › TV por Assinatura", false, 1),
+        Marca(listOf("spotify"), "Spotify", "Lazer - Passeios", false, 1),
+        Marca(listOf("fitness hut"), "Fitness Hut", "Gastos Pessoais › Academia", false, 1),
+        Marca(listOf("solinca"), "Solinca", "Gastos Pessoais › Academia", false, 1),
+        Marca(listOf("holmes place"), "Holmes Place", "Gastos Pessoais › Academia", false, 1),
+        Marca(listOf("cofidis"), "Cofidis", "Dívidas", false, 1),
+        Marca(listOf("cetelem"), "Cetelem", "Dívidas", false, 1),
+        Marca(listOf("unibanco"), "Unibanco", "Dívidas", false, 1)
     )
 
     private val meses = mapOf(
@@ -215,7 +215,13 @@ object LeitorFatura {
             mesesPeriodo > 0 -> mesesPeriodo
             else -> marca?.pm ?: 0
         }
-        val categoria = marca?.cat ?: Categorias.detectar(normais.take(40).joinToString(" "), false).let { if (it == Categorias.OUTROS) Categorias.FIXAS else it }
+        // seguradoras: o tipo de seguro decide a categoria
+        val seguro = when {
+            Regex("""automovel|viatura|seguro auto|matricula""").containsMatchIn(tudo) -> "Transporte › Seguro"
+            Regex("""saude""").containsMatchIn(tudo) -> "Saúde › Plano de Saúde"
+            else -> "Casa"
+        }
+        val categoria = marca?.cat?.ifEmpty { seguro } ?: Categorias.detectar(normais.take(40).joinToString(" "), false)
 
         return Fatura(emissor, valor, dataLimite, dataEmissao, entidade, referencia, pIni, pFim, pm, parcela, totalParcelas,
             debito, categoria, marca?.variavel ?: false, qr?.get("A").orEmpty(), origem)

@@ -82,79 +82,6 @@ data class ContaFixa(
 }
 data class Meta(val id: String, val nome: String, val alvo: Double, val emoji: String, val tipo: String, val sh: Boolean, val dono: String, val atual: Double)
 
-/** Categorias com detecção automática pela descrição. */
-object Categorias {
-    const val FIXAS = "Contas fixas"
-    const val OUTROS = "Outros"
-    const val SALARIO = "Salário"
-    const val EXTRA = "Extra"
-
-    // A ordem importa: termos mais específicos primeiro ("mercado livre" antes de "mercado")
-    private val regras = listOf(
-        "Compras" to listOf("mercado livre", "shopee", "amazon", "shein", "aliexpress", "roupa", "loja", "tenis", "presente", "worten", "fnac"),
-        "Mercado" to listOf("supermercado", "mercado", "feira", "hortifruti", "atacad", "acougue", "talho", "continente", "pingo doce", "lidl", "aldi", "minipreco", "intermarche", "mercearia"),
-        "Alimentação" to listOf("almoco", "jantar", "lanche", "cafe", "restaurante", "ifood", "uber eats", "glovo", "bolt food", "pizza", "hamburg", "padaria", "pastelaria", "bar", "gelado", "sorvete", "pequeno-almoco"),
-        "Hábitos" to listOf("cigarro", "tabaco", "maco", "vape", "raspadinha", "aposta", "euromilhoes", "cerveja", "bebida"),
-        "Transporte" to listOf("uber", "bolt", "gasolina", "gasoleo", "combustivel", "posto", "autocarro", "onibus", "metro", "comboio", "cp ", "estacionamento", "portagem", "pedagio", "oficina", "via verde"),
-        "Moradia" to listOf("aluguel", "renda", "condominio", "luz", "energia", "edp", "agua", "gas", "internet", "meo", "nos ", "vodafone", "reforma"),
-        "Saúde" to listOf("farmacia", "remedio", "medicamento", "medico", "consulta", "exame", "ginasio", "academia", "dentista"),
-        "Lazer" to listOf("cinema", "concerto", "show", "viagem", "netflix", "spotify", "hbo", "disney", "jogo", "passeio", "festa"),
-        "Educação" to listOf("curso", "livro", "escola", "faculdade", "universidade", "propina", "apostila", "formacao")
-    )
-    private val regrasReceita = listOf(
-        SALARIO to listOf("salario", "ordenado", "vencimento"),
-        "Reembolso" to listOf("reembolso", "devolveu", "devolucao", "estorno"),
-        "Rendimentos" to listOf("juros", "rendimento", "dividendo", "cashback")
-    )
-
-    val todas: List<String> = regras.map { it.first } + listOf(FIXAS, OUTROS)
-    val receitas: List<String> = regrasReceita.map { it.first } + listOf(EXTRA)
-
-    private fun normalizar(s: String): String =
-        Normalizer.normalize(" " + s.lowercase() + " ", Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
-
-    // Nomes (e apelidos) que podem ser escritos no fim da descrição para escolher a categoria
-    private val apelidos = mapOf(
-        "Compras" to listOf("compras", "compra"), "Mercado" to listOf("mercado"),
-        "Alimentação" to listOf("alimentacao", "comida"), "Hábitos" to listOf("habitos", "habito"),
-        "Transporte" to listOf("transporte", "transportes"), "Moradia" to listOf("moradia", "casa"),
-        "Saúde" to listOf("saude"), "Lazer" to listOf("lazer"), "Educação" to listOf("educacao", "estudo", "estudos"),
-        FIXAS to listOf("contas fixas", "conta fixa"), OUTROS to listOf("outros", "outro"),
-        SALARIO to listOf("salario"), "Reembolso" to listOf("reembolso"),
-        "Rendimentos" to listOf("rendimentos", "rendimento"), EXTRA to listOf("extra")
-    )
-
-    /**
-     * Categoria escrita pelo usuário: "#saude" em qualquer lugar ou o nome no fim ("12 corte de cabelo saúde").
-     * Devolve a categoria e a descrição sem o nome, ou null.
-     */
-    fun escrita(descricao: String, receita: Boolean): Pair<String, String>? {
-        val validas = if (receita) receitas else todas
-        val palavras = descricao.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        fun achar(trecho: String): String? {
-            val n = normalizar(trecho.removePrefix("#")).trim()
-            return apelidos.entries.firstOrNull { (c, a) -> c in validas && n in a }?.key
-        }
-        palavras.forEachIndexed { i, w ->
-            if (w.startsWith("#") && w.length > 1) achar(w)?.let { c ->
-                return c to palavras.filterIndexed { k, _ -> k != i }.joinToString(" ")
-            }
-        }
-        for (n in 2 downTo 1) {
-            if (palavras.size <= n) continue   // precisa sobrar descrição
-            achar(palavras.takeLast(n).joinToString(" "))?.let { return it to palavras.dropLast(n).joinToString(" ") }
-        }
-        return null
-    }
-
-    fun detectar(descricao: String, receita: Boolean = false): String {
-        val d = normalizar(descricao)
-        val lista = if (receita) regrasReceita else regras
-        for ((cat, palavras) in lista) if (palavras.any { d.contains(it) }) return cat
-        return if (receita) EXTRA else OUTROS
-    }
-}
-
 /** Preferências deste aparelho (não sincronizam). */
 object Ajustes {
     private fun p(ctx: Context) = ctx.getSharedPreferences("financas", Context.MODE_PRIVATE)
@@ -213,7 +140,7 @@ object Armazem {
         val o = r.dados
         val rec = o.optString("t") == "r"
         val d = o.optString("d")
-        return Lanc(r.id, o.optLong("q"), o.optDouble("v", 0.0), d, o.optString("c").ifEmpty { Categorias.detectar(d, rec) }, rec, r.sh, r.dono, o.optString("cf"))
+        return Lanc(r.id, o.optLong("q"), o.optDouble("v", 0.0), d, Categorias.canon(o.optString("c")).ifEmpty { Categorias.detectar(d, rec) }, rec, r.sh, r.dono, o.optString("cf"))
     }
 
     fun lancamentos(ctx: Context): List<Lanc> = b(ctx).todos("lanc").map { paraLanc(it) }.sortedByDescending { it.q }
@@ -306,8 +233,8 @@ object Armazem {
         novo(ctx, "pago", c.sh, JSONObject().put("conta", c.id).put("mes", chave))
         val nome = if (c.vezes > 1) "${c.nome} ($n/${c.vezes})" else c.nome
         val d = JSONObject().put("q", quando).put("v", valor).put("d", nome).put("cf", c.id).put("oc", chave)
-        if (c.entrada) d.put("t", "r").put("c", c.categoria.ifEmpty { Categorias.detectar(c.nome, true) })
-        else d.put("t", "d").put("c", c.categoria.ifEmpty { Categorias.FIXAS })
+        if (c.entrada) d.put("t", "r").put("c", Categorias.canon(c.categoria).ifEmpty { Categorias.detectar(c.nome, true) })
+        else d.put("t", "d").put("c", Categorias.canon(c.categoria).ifEmpty { Categorias.detectar(c.nome) })
         novo(ctx, "lanc", c.sh, d)
     }
 
@@ -355,13 +282,22 @@ object Armazem {
         novo(ctx, "pago", c.sh, JSONObject().put("conta", contaId).put("mes", oc.chave))
         val nome = if (c.vezes > 1) "${c.nome} (${oc.n}/${c.vezes})" else c.nome
         val d = JSONObject().put("q", System.currentTimeMillis()).put("v", valorReal ?: c.valor).put("d", nome).put("cf", contaId).put("oc", oc.chave)
-        if (c.entrada) d.put("t", "r").put("c", c.categoria.ifEmpty { Categorias.detectar(c.nome, true) })
-        else d.put("t", "d").put("c", c.categoria.ifEmpty { Categorias.FIXAS })
+        if (c.entrada) d.put("t", "r").put("c", Categorias.canon(c.categoria).ifEmpty { Categorias.detectar(c.nome, true) })
+        else d.put("t", "d").put("c", Categorias.canon(c.categoria).ifEmpty { Categorias.detectar(c.nome) })
         novo(ctx, "lanc", c.sh, d)
         return true
     }
 
     fun registrarFeedback(ctx: Context, dados: JSONObject) { novo(ctx, "feedback", false, dados) }
+
+    // ---------- Categorias criadas pela pessoa: {n, pai, e, cor} ----------
+    fun categoriasProprias(ctx: Context): List<Reg> = b(ctx).todos("categoria").filter { it.dono == eu(ctx) }
+    fun caminhoCategoria(r: Reg): String {
+        val pai = r.dados.optString("pai"); val n = r.dados.optString("n")
+        return if (pai.isEmpty()) n else pai + Categorias.SEP + n
+    }
+    fun salvarCategoria(ctx: Context, nome: String, pai: String, emoji: String, cor: String): String =
+        novo(ctx, "categoria", false, JSONObject().put("n", nome).put("pai", pai).put("e", emoji).put("cor", cor))
 
     // ---------- Plano (Premium) ----------
     /**
@@ -549,7 +485,10 @@ object Interpretador {
         if (valor <= 0) return null
         val desc = Fala.limparDescricao(t.removeRange(m.range).replace(simbolos, "").replace(Regex("\\s+"), " "))
             .ifEmpty { if (receita) "Entrada" else "Sem descrição" }
-        Categorias.escrita(desc, receita)?.let { (cat, resto) -> return Gasto(System.currentTimeMillis(), valor, resto, cat, receita, true) }
+        // categoria escrita no fim; se a descrição já leva a ela ("conta da água"), a descrição fica inteira
+        Categorias.escrita(desc, receita)?.let { (cat, resto) ->
+            if (desc.contains('#') || Categorias.detectar(desc, receita) != cat) return Gasto(System.currentTimeMillis(), valor, resto, cat, receita, true)
+        }
         return Gasto(System.currentTimeMillis(), valor, desc, Categorias.detectar(desc, receita), receita)
     }
 }

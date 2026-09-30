@@ -22,6 +22,8 @@ targets:
         buildPhase: resources
       - path: ../app/src/main/assets/esquema.sql
         buildPhase: resources
+      - path: ../app/src/main/assets/categorias.json
+        buildPhase: resources
     info:
       path: Info.plist
       properties:

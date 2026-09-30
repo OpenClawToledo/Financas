@@ -94,6 +94,7 @@ object Estado {
             .put("trocas", trocas)
             .put("categorias", JSONArray(Categorias.todas))
             .put("categoriasReceita", JSONArray(Categorias.receitas))
+            .put("arvore", arvoreJson(ctx))
             .put("hoje", hoje)
             .put("diasNoMes", Datas.diasNoMes())
             .put("conquistasVistas", Ajustes.conquistasVistas(ctx))
@@ -108,6 +109,30 @@ object Estado {
             .put("servidorProprio", Sessao.url(ctx) != Sessao.URL_PADRAO)
             .put("versao", try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "" } catch (e: Exception) { "" })
     }
+}
+
+/** Árvore de categorias para a interface: as do app e as criadas pela pessoa (com id, para poder apagar). */
+fun arvoreJson(ctx: Context): JSONArray {
+    val proprias = Armazem.categoriasProprias(ctx)
+    val arr = JSONArray()
+    val pais = LinkedHashMap<String, JSONObject>()
+    Categorias.arvore.forEach { c ->
+        val subs = JSONArray()
+        c.subs.forEach { subs.put(JSONObject().put("n", it.n).put("e", it.e)) }
+        val o = JSONObject().put("n", c.n).put("e", c.e).put("cor", c.cor).put("receita", c.receita).put("subs", subs)
+        pais[c.n] = o; arr.put(o)
+    }
+    // primeiro as categorias principais criadas, depois as subcategorias
+    proprias.sortedBy { if (it.dados.optString("pai").isEmpty()) 0 else 1 }.forEach { r ->
+        val d = r.dados; val pai = d.optString("pai")
+        if (pai.isEmpty()) {
+            if (pais.containsKey(d.optString("n"))) return@forEach
+            val o = JSONObject().put("n", d.optString("n")).put("e", d.optString("e", "🏷️")).put("cor", d.optString("cor", "#C9C2DA"))
+                .put("receita", false).put("subs", JSONArray()).put("id", r.id)
+            pais[d.optString("n")] = o; arr.put(o)
+        } else pais[pai]?.getJSONArray("subs")?.put(JSONObject().put("n", d.optString("n")).put("e", d.optString("e", "🏷️")).put("id", r.id))
+    }
+    return arr
 }
 
 /** O que cada tela nativa oferece à interface. */
@@ -277,6 +302,15 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
             else -> "Conta criada: " + mapOf(1 to "todo mês", 2 to "a cada 2 meses", 3 to "a cada 3 meses", 6 to "a cada 6 meses", 12 to "todo ano").getOrElse(pm) { "a cada $pm meses" }
         }
         return resp(true, oque)
+    }
+
+    /** Nova categoria criada pela pessoa. pai = "" para uma categoria principal. */
+    @JavascriptInterface fun salvarCategoria(nome: String, pai: String, emoji: String, cor: String): String {
+        val n = nome.trim().replace(Categorias.SEP.trim(), "-").take(40)
+        if (n.isEmpty()) return resp(false, "Escreva o nome da categoria")
+        val caminho = if (pai.isEmpty()) n else pai + Categorias.SEP + n
+        if (Categorias.normalizar(caminho) in (Categorias.todas + Categorias.receitas).map { Categorias.normalizar(it) }) return resp(false, "Essa categoria já existe")
+        return mudar { Armazem.salvarCategoria(ctx, n, pai, emoji.ifBlank { "🏷️" }, cor.ifBlank { "#C9C2DA" }) }
     }
 
     @JavascriptInterface fun copiar(texto: String): String {

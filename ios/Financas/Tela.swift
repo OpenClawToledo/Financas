@@ -56,7 +56,9 @@ final class Tela: UIViewController, WKScriptMessageHandler, WKURLSchemeHandler, 
         let versao = (info["CFBundleShortVersionString"] as? String) ?? "1.9"
         let build = (info["CFBundleVersion"] as? String) ?? "0"
         let app: [String: Any] = ["versao": "\(versao) (\(build))", "codigo": Int(build) ?? 0, "plataforma": "ios"]
+        let cats = Bundle.main.url(forResource: "categorias", withExtension: "json").flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
         return "window.__FIN_APP = \(json(app));\nwindow.__FIN_INICIAL = \(json(Arquivos.tudo()));"
+            + (cats.isEmpty ? "" : "\nwindow.__FIN_CATEGORIAS = \(cats);")
     }
 
     private func json(_ o: Any) -> String {
