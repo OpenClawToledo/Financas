@@ -480,6 +480,26 @@ body.rapido .topo, body.rapido main, body.rapido nav{display:none}
 body.rapido .veu{background:rgba(5,4,10,.45)}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.cart-tot{display:flex;gap:10px;margin:4px 0 10px}.cart-tot>div{flex:1;background:var(--surface);border-radius:16px;padding:14px}
+.cart-tot small{display:block;color:var(--muted);font-size:.78rem}.cart-tot b{font-size:1.35rem}
+.cart{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:0;color:var(--text);border-radius:16px;padding:12px 14px;margin:8px 0;font:inherit}
+.cart .mi-tx{flex:1;display:flex;flex-direction:column}.cart .mi-tx small{color:var(--muted);font-size:.78rem}.cart-v{white-space:nowrap}
+.cart-tag{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
+svg .lin{fill:none;stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}
+svg .lin-p{fill:none;stroke-width:2;stroke-dasharray:4 4;opacity:.75}
+svg .lin-agora{stroke:var(--text);stroke-width:1;stroke-dasharray:2 3;opacity:.6}
+.graf-leg i.trac{background:none;border-top:2px dashed var(--muted);height:0;width:14px;border-radius:0;vertical-align:3px}
+
+.graf-nav{display:flex;align-items:center;gap:10px;margin:2px 0 10px}.graf-nav button{background:var(--surface2);color:var(--text);border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:.85rem}
+.graf-nav b{flex:1}.graf-nav small{color:var(--muted)}
+.entra-frente{animation:gFrente .28s ease}.entra-tras{animation:gTras .28s ease}
+@keyframes gFrente{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes gTras{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+.graf-zoom{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;margin:8px 0 2px}
+.graf-zoom button{background:var(--surface2);color:var(--text);border:0;border-radius:999px;min-width:38px;padding:6px 12px;font:inherit;font-size:.85rem}
+.graf-zoom button.on{background:var(--text);color:var(--ink)}
+.graf-zoom small{flex-basis:100%;text-align:center;color:var(--muted);font-size:.72rem}
 </style>
 </head>
 <body>
@@ -690,7 +710,8 @@ function numerosMes(){
   const compFuturo = S.contasVis.filter(c => !c.e && c.vezes > 0).reduce((a,c) => a + restantesDepois(c) * c.v, 0);
   const comprometido = compMes + compFuturo;
   const aReceber = S.contasMes.filter(c => c.e).reduce((a,c) => a + (c.ocs || []).filter(o => !o.paga).length*c.v, 0);
-  const livre = entrou - saiu;
+  const sep = S.rec.filter(g => noMes(g.q, ano, mes)).reduce((a,g) => a + (g.rv || 0) + (g.dv || 0), 0);   // separado em metas ou reserva
+  const livre = entrou - saiu - sep;
   const ant = new Date(ano, mes-1, 1);
   const limiteAnt = new Date(ant.getFullYear(), ant.getMonth(), Math.min(S.hoje, new Date(ano, mes, 0).getDate()) + 1).getTime();
   const saiuAnt = S.desp.filter(g => g.q >= ant.getTime() && g.q < limiteAnt).reduce((a,g) => a+g.v, 0);
@@ -700,7 +721,7 @@ function numerosMes(){
   const nos = S.todos.filter(g => g.sh && g.t !== "r" && noMes(g.q, ano, mes));
   const pagoEu = nos.filter(meu).reduce((a,g) => a+g.v, 0);
   const pagoPar = nos.filter(g => !meu(g)).reduce((a,g) => a+g.v, 0);
-  return {saiu, entrou, livre, comprometido, compMes, compFuturo, aReceber, restante, sobra: livre + aReceber - compMes - restante,
+  return {saiu, entrou, livre, sep, comprometido, compMes, compFuturo, aReceber, restante, sobra: livre + aReceber - compMes - restante,
     saiuAnt, temAnt, nomeAnt: MESES_L[ant.getMonth()], trocasMes, trocado: trocasMes.reduce((a,t) => a+t.v, 0),
     pagoEu, pagoPar, acerto: (pagoEu - pagoPar) / 2};
 }
@@ -1070,7 +1091,8 @@ const passaFiltro = x => {
 function cartoesMes(){
   const {ano, mes} = extr;
   const prev = projetadas(ano, mes).filter(passaFiltro).sort((a,b) => a.q - b.q);
-  let h = prev.length ? '<div class="dia">Por acontecer</div>' + prev.map(linhaExtrato).join("") : "";
+  const somaP = t => prev.filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
+  let h = prev.length ? '<div class="dia">Pendentes'+(somaP(true) ? ' · a receber '+din(somaP(true)) : '')+(somaP(false) ? ' · a pagar '+din(somaP(false)) : '')+'</div>' + prev.map(linhaExtrato).join("") : "";
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
   // trocas não entram no feed nem nos totais: só aparecem na barra do destino
   const itens = S.vis.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
@@ -1100,7 +1122,7 @@ function bannerAtualizacao(){
 }
 /* ================= Gráfico do mês: Categorias · Dia a dia · Mês a mês ================= */
 let grafVista = (() => { try { return localStorage.getItem("fin.graf") || "cat"; } catch(e){ return "cat"; } })();
-const GRAF_ABAS = [["cat","Categorias"],["dia","Dia a dia"],["mes","Mês a mês"]];
+const GRAF_ABAS = [["cat","Categorias"],["dia","Dia a dia"],["mes","Mês a mês"],["lin","📈 Linha"]];
 const COR_RESTO = "#5A5470";
 function saidasDoMes(a, m){
   const fut = inicioMes(a, m) > inicioMes(MES_ATUAL.ano, MES_ATUAL.mes);
@@ -1109,39 +1131,59 @@ function saidasDoMes(a, m){
 const compacto = v => v >= 1000 ? (Math.round(v/100)/10).toString().replace(".", ",") + " mil" : String(Math.round(v));
 function passoEixo(max){ const b = Math.pow(10, Math.floor(Math.log10(max || 1))); const n = max / b; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * b; }
 
+let grafCat = null;   // categoria principal aberta no gráfico (null = visão geral)
+const clarear = (hex, k) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return hex; const n = parseInt(m[1], 16);
+  const f = c => Math.round(c + (255 - c) * k); return "#" + [n >> 16, (n >> 8) & 255, n & 255].map(f).map(x => x.toString(16).padStart(2, "0")).join(""); };
 function graficoCategorias(){
-  // por categoria principal; ao tocar, mostra as subcategorias dela
+  // por categoria principal; ao tocar, abre as subcategorias dela (com voltar)
   const itens = saidasDoMes(extr.ano, extr.mes), soma = {}, porSub = {};
   itens.forEach(g => {
     const p = catPai(g.c), sub = canonCat(g.c).includes(SEPC) ? catNome(g.c) : "Geral";
     soma[p] = (soma[p] || 0) + g.v;
-    (porSub[p] = porSub[p] || {})[sub] = (porSub[p][sub] || 0) + g.v;
+    const o = (porSub[p] = porSub[p] || {})[sub] = (porSub[p][sub] || {v: 0, n: 0, max: null});
+    o.v += g.v; o.n++; if (!o.max || g.v > o.max.v) o.max = {d: g.d, v: g.v};
   });
+  if (grafCat && !soma[grafCat]) grafCat = null;
   let lista = Object.entries(soma).sort((a,b) => b[1] - a[1]);
-  const total = lista.reduce((a,x) => a + x[1], 0);
+  let total = lista.reduce((a,x) => a + x[1], 0);
   if (!total) return {svg:'<p class="nota" style="margin:18px 0;text-align:center">Sem saídas neste mês.</p>', ler:""};
-  // no máximo 6 fatias: as 5 maiores + "Resto"
-  if (lista.length > 6){ const resto = lista.slice(5).reduce((a,x) => a + x[1], 0); lista = lista.slice(0, 5).concat([["Resto", resto]]); }
-  const cor = c => c === "Resto" ? COR_RESTO : cat(c)[1];
+  const drill = grafCat, base = drill ? cat(drill)[1] : null;
+  let cor, rotulo, dicaDados, topo = "";
+  if (drill){
+    lista = Object.entries(porSub[drill]).map(([n, o]) => [n, o.v]).sort((a,b) => b[1] - a[1]);
+    total = soma[drill];
+    if (lista.length > 6){ const resto = lista.slice(5).reduce((a,x) => a + x[1], 0); lista = lista.slice(0, 5).concat([["Resto", resto]]); }
+    cor = (c, i) => c === "Resto" ? COR_RESTO : clarear(base, Math.min(i * 0.16, 0.7));
+    rotulo = c => esc(c);
+    dicaDados = (c, v) => { const o = porSub[drill][c]; return '<b>'+esc(c)+'</b> em '+esc(drill)+': '+din(v)+' ('+Math.round(v/total*100)+'%)'
+      + (o ? ' · '+o.n+' lançamento'+(o.n > 1 ? "s" : "")+' · maior: '+esc(o.max.d)+' '+din(o.max.v) : ''); };
+    topo = '<div class="graf-nav"><button data-volta aria-label="Voltar">‹ Voltar</button><b>'+cat(drill)[0]+' '+esc(drill)+'</b><small>'+Math.round(total / Object.values(soma).reduce((a,x) => a + x, 0) * 100)+'% do mês</small></div>';
+  } else {
+    // no máximo 6 fatias: as 5 maiores + "Resto"
+    if (lista.length > 6){ const resto = lista.slice(5).reduce((a,x) => a + x[1], 0); lista = lista.slice(0, 5).concat([["Resto", resto]]); }
+    cor = c => c === "Resto" ? COR_RESTO : cat(c)[1];
+    rotulo = c => (c === "Resto" ? "" : cat(c)[0]+" ")+esc(c);
+    dicaDados = (c, v) => { const subs = Object.entries(porSub[c] || {}).sort((a,b) => b[1].v - a[1].v);
+      return '<b>'+rotulo(c)+'</b>: '+din(v)+' ('+Math.round(v/total*100)+'%)'+(c !== "Resto" && (subs.length > 1 || (subs[0] && subs[0][0] !== "Geral")) ? '<br>'+subs.slice(0, 4).map(([n, o]) => esc(n)+' '+din(o.v)).join(' · ')+' · <u>toque para abrir</u>' : ''); };
+  }
+  const podeAbrir = c => !drill && c !== "Resto" && (Object.keys(porSub[c] || {}).length > 1 || Object.keys(porSub[c] || {})[0] !== "Geral");
   const R = 56, L = 18, C = 66, circ = 2 * Math.PI * R, fol = lista.length > 1 ? 2 : 0;
   let ac = 0, arcos = "";
   lista.forEach(([c, v], i) => {
     const tam = v / total * circ;
-    arcos += '<circle data-v="'+i+'" cx="'+C+'" cy="'+C+'" r="'+R+'" fill="none" stroke="'+cor(c)+'" stroke-width="'+L+'"'
+    arcos += '<circle data-v="'+i+'"'+(podeAbrir(c) ? ' data-abrircat="'+esc(c)+'"' : '')+' cx="'+C+'" cy="'+C+'" r="'+R+'" fill="none" stroke="'+cor(c, i)+'" stroke-width="'+L+'"'
       + ' stroke-dasharray="'+Math.max(tam - fol, 0.5).toFixed(2)+' '+(circ - Math.max(tam - fol, 0.5)).toFixed(2)+'" stroke-dashoffset="'+(-ac).toFixed(2)+'"'
       + ' transform="rotate(-90 '+C+' '+C+')"><title>'+esc(c)+': '+din(v)+'</title></circle>';
     ac += tam;
   });
-  const svg = '<div class="rosca"><svg viewBox="0 0 132 132" role="img" aria-label="Saídas por categoria">'+arcos
+  const svg = topo + '<div class="rosca"><svg viewBox="0 0 132 132" role="img" aria-label="Saídas por categoria">'+arcos
     + '<text x="'+C+'" y="'+(C-2)+'" text-anchor="middle" style="fill:var(--text);font-size:15px;font-weight:700">'+esc(din(total).replace(/,00(?=\s|$)/, ""))+'</text>'
-    + '<text x="'+C+'" y="'+(C+14)+'" text-anchor="middle">saiu</text></svg>'
-    + '<div class="rosca-lista">'+lista.map(([c, v], i) => '<button class="rosca-item" data-v="'+i+'"><i style="background:'+cor(c)+'"></i>'
-      + '<span>'+(c === "Resto" ? "" : cat(c)[0]+" ")+esc(c)+'</span><small>'+Math.round(v/total*100)+'%</small>'
-      + '<div class="barra"><u style="width:'+(v/lista[0][1]*100).toFixed(1)+'%;background:'+cor(c)+'"></u></div></button>').join("")+'</div></div>';
-  const detalhe = c => { const subs = Object.entries(porSub[c] || {}).sort((a,b) => b[1]-a[1]);
-    return subs.length > 1 || (subs[0] && subs[0][0] !== "Geral") ? '<br>'+subs.slice(0, 4).map(([n, v]) => esc(n)+' '+din(v)).join(' · ') : ''; };
-  return {svg, dados: lista.map(([c, v]) => '<b>'+(c === "Resto" ? "" : cat(c)[0]+" ")+esc(c)+'</b>: '+din(v)+' ('+Math.round(v/total*100)+'%)'+(c === "Resto" ? "" : detalhe(c))),
-    ler: 'Maior: <b>'+esc(lista[0][0])+'</b> · '+din(lista[0][1])};
+    + '<text x="'+C+'" y="'+(C+14)+'" text-anchor="middle">'+(drill ? "em "+esc(drill) : "saiu")+'</text></svg>'
+    + '<div class="rosca-lista">'+lista.map(([c, v], i) => '<button class="rosca-item" data-v="'+i+'"'+(podeAbrir(c) ? ' data-abrircat="'+esc(c)+'"' : '')+'><i style="background:'+cor(c, i)+'"></i>'
+      + '<span>'+rotulo(c)+'</span><small>'+Math.round(v/total*100)+'%'+(podeAbrir(c) ? ' ›' : '')+'</small>'
+      + '<div class="barra"><u style="width:'+(v/lista[0][1]*100).toFixed(1)+'%;background:'+cor(c, i)+'"></u></div></button>').join("")+'</div></div>';
+  return {svg, dados: lista.map(([c, v]) => dicaDados(c, v)),
+    ler: drill ? 'Maior em '+esc(drill)+': <b>'+esc(lista[0][0])+'</b> · '+din(lista[0][1]) : 'Maior: <b>'+esc(lista[0][0])+'</b> · '+din(lista[0][1])+' · toque numa categoria para ver por dentro'};
 }
 
 function graficoDias(){
@@ -1205,31 +1247,275 @@ function graficoMeses(){
 
 let grafAtual = null;
 function corpoGrafico(){
-  grafAtual = grafVista === "dia" ? graficoDias() : grafVista === "mes" ? graficoMeses() : graficoCategorias();
+  grafAtual = grafVista === "dia" ? graficoDias() : grafVista === "mes" ? graficoMeses() : grafVista === "lin" ? graficoLinha() : graficoCategorias();
   return grafAtual.svg + '<div class="graf-ler" id="grafLer">'+(grafAtual.ler || "")+'</div>';
 }
 function grafico(){
-  return '<section class="graf" id="graf"><div class="graf-topo"><b>Para onde vai</b><div class="graf-abas">'
+  return '<section class="graf" id="graf"><div class="graf-topo"><b>'+(grafVista === "lin" ? "Ganhei × Comprometi" : "Para onde vai")+'</b><div class="graf-abas">'
     + GRAF_ABAS.map(([k,n]) => '<button data-graf="'+k+'" class="'+(grafVista === k ? "on" : "")+'">'+n+'</button>').join("")
     + '</div></div><div id="grafCorpo">'+corpoGrafico()+'</div></section>';
+}
+let selGraf = null;
+function ligarToques(g){
+  $$("[data-v]", g).forEach(el => el.onclick = e => {
+    e.stopPropagation();
+    if (movidoGraf){ movidoGraf = false; return; }
+    if (el.dataset.abrircat){ grafCat = el.dataset.abrircat; selGraf = null; redesenharGrafico(g, "frente"); vibrar(); return; }
+    const v = el.dataset.v;
+    if (selGraf === v){ selGraf = null; g.classList.remove("foco"); $$("[data-v]", g).forEach(x => x.classList.remove("sel")); $("#grafLer", g).innerHTML = grafAtual.ler || ""; return; }
+    selGraf = v; g.classList.add("foco");
+    $$("[data-v]", g).forEach(x => x.classList.toggle("sel", x.dataset.v === v));
+    $("#grafLer", g).innerHTML = (grafAtual.dados || [])[+v] || "";
+  });
+}
+function redesenharGrafico(g, anim){
+  const c = $("#grafCorpo", g);
+  g.classList.remove("foco"); selGraf = null;
+  c.innerHTML = corpoGrafico();
+  if (anim){ c.classList.remove("entra-frente", "entra-tras"); void c.offsetWidth; c.classList.add(anim === "frente" ? "entra-frente" : "entra-tras"); }
+  $(".graf-topo b", g).textContent = grafVista === "lin" ? "Ganhei × Comprometi" : "Para onde vai";
+  ligarGrafico();
 }
 function ligarGrafico(){
   const g = $("#graf"); if (!g) return;
   $$("[data-graf]", g).forEach(b => b.onclick = () => {
     grafVista = b.dataset.graf; try { localStorage.setItem("fin.graf", grafVista); } catch(e){}
     $$("[data-graf]", g).forEach(x => x.classList.toggle("on", x === b));
-    g.classList.remove("foco"); $("#grafCorpo", g).innerHTML = corpoGrafico(); vibrar(); ligarGrafico();
+    vibrar(); redesenharGrafico(g);
   });
-  let sel = null;
-  $$("[data-v]", g).forEach(el => el.onclick = e => {
-    e.stopPropagation();
-    const v = el.dataset.v;
-    if (sel === v){ sel = null; g.classList.remove("foco"); $$("[data-v]", g).forEach(x => x.classList.remove("sel")); $("#grafLer", g).innerHTML = grafAtual.ler || ""; return; }
-    sel = v; g.classList.add("foco");
-    $$("[data-v]", g).forEach(x => x.classList.toggle("sel", x.dataset.v === v));
-    $("#grafLer", g).innerHTML = (grafAtual.dados || [])[+v] || "";
+  const vb = $("[data-volta]", g);
+  if (vb) vb.onclick = () => { grafCat = null; redesenharGrafico(g, "tras"); vibrar(); };
+  // deslizar para a direita volta; para a esquerda abre a maior categoria
+  const corpo = $("#grafCorpo", g);
+  if (grafVista === "cat" && corpo && !corpo.dataset.desliza){
+    corpo.dataset.desliza = "1"; let x0 = null, y0 = null;
+    corpo.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive: true});
+    corpo.addEventListener("touchend", e => {
+      if (x0 == null || grafVista !== "cat") return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+      if (dx > 0 && grafCat){ grafCat = null; redesenharGrafico(g, "tras"); vibrar(); }
+      else if (dx < 0 && !grafCat){ const p = $("[data-abrircat]", g); if (p){ grafCat = p.dataset.abrircat; redesenharGrafico(g, "frente"); vibrar(); } }
+    }, {passive: true});
+  }
+  selGraf = null;
+  ligarToques(g);
+  if (grafVista === "lin"){ ligarBotoesZoom(g); ligarGestosLinha(g); }
+}
+
+/* ================= Contas, cartões e carteiras ================= */
+const TIPOS_CART = {b:["🏦","Conta bancária"], c:["💳","Cartão"], w:["👛","Carteira ou dinheiro"]};
+const EMOJIS_CART = ["🏦","💳","👛","💶","🪙","🏧","📱","🐷"];
+const carteirasVis = () => (S.carteiras || []).filter(c => meu(c) || (temCasal() && c.sh));
+const minhasCarteiras = () => (S.carteiras || []).filter(meu);
+const carteiraDe = id => (S.carteiras || []).find(c => c.id === id);
+function saldoCarteira(c){
+  const agora = Date.now();
+  return (c.si || 0) + S.todos.filter(g => g.ca === c.id && g.q <= agora).reduce((a,g) => a + (g.t === "r" ? g.v : -g.v), 0);
+}
+function chipsCarteira(atual, attr){
+  const l = minhasCarteiras(); if (!l.length) return "";
+  return '<div class="rotulo">Conta ou cartão</div><div class="chips rolar"><button class="chip'+(atual ? "" : " on")+'" '+attr+'="">Nenhuma</button>'
+    + l.map(c => '<button class="chip'+(atual === c.id ? " on" : "")+'" '+attr+'="'+c.id+'">'+esc(c.e)+' '+esc(c.n)+'</button>').join("") + '</div>';
+}
+function pagCarteiras(){
+  const vis = carteirasVis(), minhas = vis.filter(meu), deles = vis.filter(c => !meu(c));
+  const totEu = minhas.reduce((a,c) => a + saldoCarteira(c), 0), totCasal = vis.reduce((a,c) => a + saldoCarteira(c), 0);
+  let h = '<div class="cart-tot"><div><small>Total meu</small><b class="'+(totEu < 0 ? "neg" : "pos")+'">'+sdin(totEu)+'</b></div>'
+    + (temCasal() ? '<div><small>Total do casal</small><b class="'+(totCasal < 0 ? "neg" : "pos")+'">'+sdin(totCasal)+'</b></div>' : '') + '</div>';
+  if (temCasal()) h += '<p class="nota">O total do casal soma as suas contas e só o que '+esc(S.parceiro.nome)+' deixou visível. Cada conta pode ser só sua ou do casal.</p>';
+  if (!vis.length) h += '<p class="nota">Cadastre os bancos, cartões e carteiras que você usa. Ao lançar, escolha de onde saiu ou onde entrou.</p>';
+  const linha = c => '<'+(meu(c) ? 'button data-cart="'+c.id+'"' : 'div')+' class="cart"><span class="mi-ic">'+esc(c.e)+'</span><span class="mi-tx"><b>'+esc(c.n)+'</b><small>'
+    + TIPOS_CART[c.t][1]+' · '+(c.sh ? "👥 Casal vê" : "🔒 Só eu")+'</small></span><b class="cart-v '+(saldoCarteira(c) < 0 ? "neg" : "")+'">'+sdin(saldoCarteira(c))+'</b></'+(meu(c) ? 'button' : 'div')+'>';
+  h += minhas.map(linha).join("");
+  if (deles.length) h += '<div class="grupo">De '+esc(S.parceiro.nome)+'</div>' + deles.map(linha).join("");
+  return h + '<button class="btn" id="cartNova">+ Nova conta, cartão ou carteira</button>';
+}
+function folhaCarteira(id){
+  const c = id ? carteiraDe(id) : null;
+  let e = c ? c.e : "🏦", t = c ? c.t : "b", sh = c ? !!c.sh : false;
+  abrirFolha('<h3>'+(c ? "Editar" : "Nova")+' conta, cartão ou carteira</h3>'
+    + '<label class="campo"><span>Nome</span><input id="cN" maxlength="30" placeholder="Ex.: Millennium, Nubank, Dinheiro" value="'+esc(c ? c.n : "")+'"></label>'
+    + '<div class="chips" id="cT"></div><div class="chips rolar" id="cE"></div>'
+    + '<label class="campo"><span>Saldo inicial (opcional)</span><input id="cS" inputmode="decimal" placeholder="0" value="'+(c && c.si ? String(c.si).replace(".", ",") : "")+'"></label>'
+    + (temCasal() ? '<div id="cSh"></div>' : '')
+    + '<button class="btn" id="cSalvar">Salvar</button>' + (c ? '<button class="btn sec" id="cApagar">Apagar esta conta</button>' : ''), f => {
+    const montar = () => {
+      $("#cT", f).innerHTML = Object.entries(TIPOS_CART).map(([k,[i,n]]) => '<button class="chip'+(t === k ? " on" : "")+'" data-t="'+k+'">'+i+' '+n+'</button>').join("");
+      $("#cE", f).innerHTML = EMOJIS_CART.map(x => '<button class="chip'+(x === e ? " on" : "")+'" data-e="'+x+'" style="font-size:1.25rem">'+x+'</button>').join("");
+      $$("#cT .chip", f).forEach(b => b.onclick = () => { t = b.dataset.t; if (Object.values(TIPOS_CART).some(x => x[0] === e)) e = TIPOS_CART[t][0]; montar(); });
+      $$("#cE .chip", f).forEach(b => b.onclick = () => { e = b.dataset.e; montar(); });
+      const box = $("#cSh", f);
+      if (box){ box.innerHTML = chave("cShSw", sh ? "👥 O casal vê esta conta" : "🔒 Só eu vejo esta conta", "Ao compartilhar, entra no total do casal", sh); $("#cShSw", f).onclick = () => { sh = !sh; montar(); }; }
+    };
+    montar();
+    $("#cSalvar", f).onclick = () => {
+      const r = aplicar(ponte.salvarCarteira(id || "", $("#cN", f).value, e, t, $("#cS", f).value, sh));
+      if (!r.ok){ aviso(r.msg || "Confira o nome e o saldo"); return; }
+      vibrar(); fecharFolha(); render(false);
+    };
+    const ap = $("#cApagar", f);
+    if (ap) ap.onclick = () => confirmar("Apagar “"+c.n+"”?", "Os lançamentos continuam, só deixam de ter conta.", "Apagar", () => { aplicar(ponte.removerCarteira(id)); fecharFolha(); render(false); });
   });
 }
+function ligarCarteiras(){
+  const n = $("#cartNova"); if (n) n.onclick = () => folhaCarteira("");
+  $$("[data-cart]").forEach(b => b.onclick = () => folhaCarteira(b.dataset.cart));
+}
+
+/* ================= Gráfico de linha: quanto ganhei × quanto comprometi (em tempo real) ================= */
+let zoomLin = {a: 0, b: 1};   // janela visível do mês (fração de 0 a 1)
+function graficoLinha(){
+  const {ano, mes} = extr;
+  const ini = inicioMes(ano, mes), fim = inicioMes(ano, mes + 1), agora = Date.now(), mesMs = fim - ini;
+  const atual = agora >= ini && agora < fim, corte = atual ? agora : (agora >= fim ? fim : ini);
+  const real = S.vis.filter(g => g.q >= ini && g.q < fim && g.q <= corte);
+  const ev = (lista, tipoR) => lista.filter(g => (g.t === "r") === tipoR).map(g => ({q: g.q, v: g.v})).sort((a,b) => a.q - b.q);
+  const gan = ev(real, true), sai = ev(real, false);
+  const pend = projetadas(ano, mes);
+  const pe = tipoR => pend.filter(x => (x.t === "r") === tipoR).map(x => ({q: Math.min(Math.max(x.q, corte), fim - 1), v: x.v})).sort((a,b) => a.q - b.q);
+  const pg = pe(true), ps = pe(false);
+  const soma = l => l.reduce((a,e) => a + e.v, 0);
+  const G = soma(gan), C = soma(sai), aReceber = soma(pg), aPagar = soma(ps);
+  const topoV = Math.max(G + aReceber, C + aPagar);
+  if (!topoV) return {svg:'<p class="nota" style="margin:18px 0;text-align:center">Sem movimentos neste mês ainda.</p>', ler:""};
+  const zoomado = zoomLin.b - zoomLin.a < 0.999;
+  const qa = ini + zoomLin.a * mesMs, qb = ini + zoomLin.b * mesMs;
+  const cumAt = (l, t) => soma(l.filter(e => e.q <= t));
+  const Gt = t => cumAt(gan, t) + (t > corte ? cumAt(pg, t) : 0), Ct = t => cumAt(sai, t) + (t > corte ? cumAt(ps, t) : 0);
+  // no zoom a escala vertical acompanha o trecho visível
+  let vmin = zoomado ? Math.min(Gt(qa), Ct(qa)) : 0, vmax = zoomado ? Math.max(Gt(qb), Ct(qb)) : topoV;
+  if (vmax - vmin < 1){ vmax = vmin + 1; }
+  const passo = passoEixo((vmax - vmin) / 2.5), base = Math.floor(vmin / passo) * passo, topo = Math.ceil(vmax / passo) * passo + (zoomado ? 0 : 0);
+  const W = 320, H = 168, x0 = 30, xf = 312, y0 = 140, alt = 118;
+  const X = q => x0 + (q - qa) / (qb - qa) * (xf - x0), Y = v => y0 - (v - base) / ((topo - base) || 1) * alt;
+  const pontos = (evs, b0, ti, tf) => { let c = b0; const p = [[ti, c]]; evs.forEach(e => { c += e.v; p.push([e.q, c]); }); p.push([tf, c]); return p; };
+  const caminho = p => p.map((q, i) => (i ? "L" : "M") + X(q[0]).toFixed(1) + " " + Y(q[1]).toFixed(1)).join("");
+  const pG = pontos(gan, 0, ini, corte), pC = pontos(sai, 0, ini, corte);
+  const pGp = pontos(pg, G, corte, fim), pCp = pontos(ps, C, corte, fim);
+  let h = '<defs><clipPath id="clipLin"><rect x="'+x0+'" y="'+(y0-alt-10)+'" width="'+(xf-x0)+'" height="'+(alt+12)+'"/></clipPath></defs>';
+  for (let t = base; t <= topo + 0.001; t += passo) h += '<line class="eixo" x1="'+x0+'" x2="'+xf+'" y1="'+Y(t)+'" y2="'+Y(t)+'" style="opacity:'+(t > base ? .5 : 1)+'"/><text x="'+(x0-6)+'" y="'+(Y(t)+3)+'" text-anchor="end">'+compacto(t)+'</text>';
+  // datas no eixo: dias (ou horas quando o zoom é grande)
+  const n = new Date(ano, mes + 1, 0).getDate(), spanDias = (qb - qa) / 864e5;
+  if (spanDias <= 2.2){
+    const passoH = spanDias <= 0.6 ? 3 : 6;
+    for (let t = Math.ceil(qa / 36e5 / passoH) * passoH * 36e5; t <= qb; t += passoH * 36e5){
+      const d = new Date(t); h += '<text x="'+X(t)+'" y="'+(y0+14)+'" text-anchor="middle">'+(d.getHours() === 0 ? d.getDate() + "/" + (d.getMonth() + 1) : d.getHours() + "h")+'</text>';
+    }
+  } else {
+    const k = spanDias > 20 ? 7 : spanDias > 10 ? 3 : spanDias > 5 ? 2 : 1;
+    for (let d = 1; d <= n; d++){
+      const t = new Date(ano, mes, d, 12).getTime();
+      if (t < qa || t > qb) continue;
+      if (zoomado ? (d - 1) % k === 0 : [1, 8, 15, 22, n].includes(d)) h += '<text x="'+X(t)+'" y="'+(y0+14)+'" text-anchor="middle">'+d+'</text>';
+    }
+  }
+  h += '<g clip-path="url(#clipLin)"><path d="'+caminho(pG)+'L'+X(corte)+' '+Y(base)+'L'+X(ini)+' '+Y(base)+'Z" fill="var(--ok)" opacity=".10"/>'
+    + '<path class="lin-p" d="'+caminho(pGp)+'" stroke="var(--ok)"/><path class="lin-p" d="'+caminho(pCp)+'" stroke="var(--late)"/>'
+    + '<path class="lin" d="'+caminho(pG)+'" stroke="var(--ok)"/><path class="lin" d="'+caminho(pC)+'" stroke="var(--late)"/>';
+  if (atual) h += '<line class="lin-agora" x1="'+X(agora)+'" x2="'+X(agora)+'" y1="'+(y0-alt-4)+'" y2="'+y0+'"/>';
+  h += '<circle cx="'+X(corte)+'" cy="'+Y(G)+'" r="3.5" fill="var(--ok)"/><circle cx="'+X(corte)+'" cy="'+Y(C)+'" r="3.5" fill="var(--late)"/>';
+  // pontos de cada lançamento quando há zoom
+  if (zoomado){
+    gan.forEach((e, i) => { if (e.q >= qa && e.q <= qb) h += '<circle cx="'+X(e.q)+'" cy="'+Y(cumAt(gan, e.q))+'" r="2.4" fill="var(--ok)"/>'; });
+    sai.forEach(e => { if (e.q >= qa && e.q <= qb) h += '<circle cx="'+X(e.q)+'" cy="'+Y(cumAt(sai, e.q))+'" r="2.4" fill="var(--late)"/>'; });
+  }
+  h += '</g>';
+  if (atual && agora >= qa && agora <= qb) h += '<text x="'+X(agora)+'" y="'+(y0-alt-7)+'" text-anchor="middle" style="fill:var(--text)">agora</text>';
+  // toque por dia
+  const dados = [];
+  for (let d = 1; d <= n; d++){
+    const t0 = new Date(ano, mes, d).getTime(), t1 = Math.min(new Date(ano, mes, d, 23, 59, 59).getTime(), fim - 1), prev = t1 > corte;
+    const g = Gt(t1), c = Ct(t1);
+    dados.push('<b>Dia '+d+'</b>'+(prev ? ' (previsto)' : '')+': ganhei '+din(g)+' · comprometi '+din(c)+' · <b class="'+(g - c < 0 ? "neg" : "pos")+'">'+sdin(g - c)+'</b>');
+    const xa = Math.max(X(t0), x0), xb = Math.min(X(t1 + 1), xf);
+    if (xb - xa > 1) h += '<rect data-v="'+(d-1)+'" x="'+xa+'" y="'+(y0-alt-4)+'" width="'+(xb-xa)+'" height="'+(alt+4)+'" fill="transparent"/>';
+  }
+  const perto = (a, b) => Math.abs(zoomLin.a - a) < .004 && Math.abs(zoomLin.b - b) < .004;
+  const zb = (k, t, on) => '<button data-z="'+k+'" class="'+(on ? "on" : "")+'">'+t+'</button>';
+  const comp = C + aPagar, tt = tempoTrabalho(comp), sep = S.rec.filter(g => noMes(g.q, ano, mes)).reduce((a,g) => a + (g.rv || 0) + (g.dv || 0), 0);
+  const ler = 'Ganhei <b class="pos">'+din(G)+'</b>'+(aReceber ? ' <small>(+'+din(aReceber)+' a receber)</small>' : '')
+    + ' · Comprometi <b class="neg">'+din(comp)+'</b> <small>(saiu '+din(C)+(aPagar ? ' + '+din(aPagar)+' pendente' : '')+')</small>'
+    + '<br>Sobra <b class="'+(G + aReceber - comp < 0 ? "neg" : "pos")+'">'+sdin(G + aReceber - comp)+'</b>'
+    + (tt ? ' · comprometeu <b>'+tt+'</b> do seu trabalho' : '') + (sep ? ' · separado em metas/reserva: '+din(sep) : '');
+  const leg = '<div class="graf-leg"><span><i style="background:var(--ok)"></i>Ganhei</span><span><i style="background:var(--late)"></i>Comprometi</span><span><i class="trac"></i>Pendente</span></div>'
+    + '<div class="graf-zoom">'+zb("-", "−", false)+zb("+", "+", false)+zb("mes", "Mês", !zoomado)+zb("sem", "7 dias", false)+zb("hoje", "Hoje", false)+'<small>'+(zoomado ? "arraste para andar" : "pinça para aproximar")+'</small></div>';
+  return {svg: '<svg id="svgLin" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Ganhei e comprometi ao longo do mês">'+h+'</svg>'+leg, dados, ler};
+}
+
+// ----- zoom: pinça, arrastar e botões -----
+const ZOOM_MIN = 0.02;
+function ajustarZoom(a, b){
+  let span = Math.min(1, Math.max(ZOOM_MIN, b - a));
+  a = Math.min(Math.max(0, a), 1 - span);
+  zoomLin = {a, b: a + span};
+}
+function refazerLinha(){
+  const g = $("#graf"), svg = $("#svgLin", g); if (!svg) return;
+  grafAtual = graficoLinha();
+  const t = document.createElement("div"); t.innerHTML = grafAtual.svg;
+  const novo = $("#svgLin", t); if (!novo) return;
+  svg.innerHTML = novo.innerHTML;
+  $$(".graf-zoom", g).forEach(z => z.replaceWith($(".graf-zoom", t)));
+  ligarToques(g); ligarBotoesZoom(g);
+}
+function zoomPara(fator, centroFrac){
+  const span = zoomLin.b - zoomLin.a, c = centroFrac == null ? (zoomLin.a + zoomLin.b) / 2 : centroFrac;
+  const ns = Math.min(1, Math.max(ZOOM_MIN, span * fator)), rel = (c - zoomLin.a) / span;
+  ajustarZoom(c - rel * ns, c - rel * ns + ns);
+}
+function ligarBotoesZoom(g){
+  const {ano, mes} = extr, n = new Date(ano, mes + 1, 0).getDate(), dia = 1 / n;
+  const ini = inicioMes(ano, mes), fim = inicioMes(ano, mes + 1), agora = Date.now();
+  const fr = agora >= ini && agora < fim ? (agora - ini) / (fim - ini) : 0;
+  $$("[data-z]", g).forEach(b => b.onclick = e => {
+    e.stopPropagation(); const k = b.dataset.z;
+    const agoraFr = (zoomLin.a <= fr && fr <= zoomLin.b) ? fr : null;
+    if (k === "+") zoomPara(0.5, agoraFr);
+    else if (k === "-") zoomPara(2, agoraFr);
+    else if (k === "mes") ajustarZoom(0, 1);
+    else if (k === "sem") ajustarZoom(fr - 3.5 * dia, fr + 3.5 * dia);
+    else if (k === "hoje"){ const i0 = Math.floor(fr * n) * dia; ajustarZoom(i0, i0 + dia); }
+    vibrar(); refazerLinha();
+  });
+}
+let movidoGraf = false;
+function ligarGestosLinha(g){
+  const svg = $("#svgLin", g); if (!svg || svg.dataset.gestos) return;
+  svg.dataset.gestos = "1"; svg.style.touchAction = "none";
+  const pts = new Map(); let ref = null;
+  const larg = () => svg.getBoundingClientRect().width * (282 / 320);
+  const dist = () => { const [p, q] = [...pts.values()]; return Math.hypot(p.x - q.x, p.y - q.y); };
+  const cf = () => { const [p, q] = [...pts.values()]; const r = svg.getBoundingClientRect(); return Math.min(1, Math.max(0, ((p.x + q.x) / 2 - r.left - r.width * 30 / 320) / larg())); };
+  svg.addEventListener("pointerdown", e => {
+    pts.set(e.pointerId, {x: e.clientX, y: e.clientY}); movidoGraf = false;
+    ref = pts.size === 2 ? {d: dist(), z: {...zoomLin}, c: cf()} : {x: e.clientX, z: {...zoomLin}};
+  });
+  svg.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (pts.size >= 2 && ref && ref.d){
+      movidoGraf = true;
+      const span0 = ref.z.b - ref.z.a, ns = Math.min(1, Math.max(ZOOM_MIN, span0 * ref.d / Math.max(dist(), 1)));
+      const abs = ref.z.a + ref.c * span0; ajustarZoom(abs - ref.c * ns, abs - ref.c * ns + ns); refazerLinha();
+    } else if (pts.size === 1 && ref && ref.x != null){
+      const dx = e.clientX - ref.x;
+      if (Math.abs(dx) > 6) movidoGraf = true;
+      if (movidoGraf && ref.z.b - ref.z.a < 0.999){
+        const span = ref.z.b - ref.z.a; ajustarZoom(ref.z.a - dx / larg() * span, ref.z.a - dx / larg() * span + span); refazerLinha();
+      }
+    }
+  });
+  const fim = e => { pts.delete(e.pointerId); ref = pts.size === 1 ? {x: [...pts.values()][0].x, z: {...zoomLin}} : null; };
+  svg.addEventListener("pointerup", fim); svg.addEventListener("pointercancel", fim);
+}
+
+function tickGrafico(){
+  if (grafVista !== "lin" || aba !== "feed") return;
+  const g = $("#graf"), c = $("#grafCorpo"); if (!g || !c || g.classList.contains("foco")) return;
+  refazerLinha();
+}
+setInterval(tickGrafico, 20000);
 
 /* ================= Dinheiro de hoje: quanto posso gastar e quanto tempo dura ================= */
 const DIA_INI = 7, DIA_FIM = 23;   // horas acordado
@@ -1355,6 +1641,9 @@ function post(g){
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
     + (!r && tempoTrabalho(g.v) ? '<p class="tempo-trab">⏱ '+tempoTrabalho(g.v)+' do seu trabalho</p>' : '')
+    + (g.ca && carteiraDe(g.ca) ? '<p class="cart-tag">'+esc(carteiraDe(g.ca).e)+' '+esc(carteiraDe(g.ca).n)+'</p>' : '')
+    + (r && g.dv && g.dm ? '<p class="cart-tag">🎯 '+din(g.dv)+' '+destinoTexto(g.dm)+'</p>' : '')
+    + (r && g.rv ? '<p class="cart-tag">🔒 '+din(g.rv)+' reservado</p>' : '')
     + (tema === "centavo" ? '<p class="fala-centavo">'+SVG_CENTAVO+'<span>“'+esc(falaCentavo(g))+'”</span></p>' : '')
     + '<footer><button class="acao'+(g.l ? " curtido" : "")+'" data-curtir aria-label="Curtir">'+ICON.coracao+'<span>'+(g.lc || "")+'</span></button>'
     + '<button class="acao" data-comentar aria-label="Comentar">'+ICON.balao+'<span>'+(g.cm.length || "")+'</span></button></footer>'
@@ -1387,7 +1676,7 @@ const doMesExtrato = () => S.vis.filter(g => noMes(g.q, extr.ano, extr.mes)).con
 function linhaExtrato(x){
   const d = new Date(x.q); const [emoji, cor] = cat(x.c); const r = x.t === "r";
   const quem = temCasal() ? ' · '+esc(nomeDe(x.dono))+(x.sh ? ' · Nós' : '') : '';
-  return '<button class="row'+(x.prev ? " prevista" : "")+'" '+(x.prev ? 'data-conta="'+x.id+'"' : 'data-abrir="'+x.id+'"')+'>'
+  return '<button class="row'+(x.prev ? " prevista" : "")+'" '+(x.prev ? 'data-conta="'+x.id+'"' : 'data-abrircat="'+x.id+'"')+'>'
     + '<span class="data"><b>'+d.getDate()+'</b><small>'+MESES[d.getMonth()]+'</small></span>'
     + '<span class="av" style="--c:'+cor+'">'+emoji+'</span>'
     + '<span class="info"><b>'+esc(x.d)+'</b><small>'+esc(catNome(x.c))+(x.prev ? " · prevista" : "")+quem+'</small></span>'
@@ -1671,7 +1960,7 @@ function ligarCategorias(){
 }
 
 const PAGINAS = {
-  categorias: ["Categorias", pagCategorias],
+  categorias: ["Categorias", pagCategorias], carteiras: ["Contas e cartões", pagCarteiras],
   conta: ["Conta e dados pessoais", pagConta], casal: ["Casal", () => secaoCasal().replace('<h3 class="h3">Casal</h3>', '')],
   metricas: ["Métricas e conquistas", pagMetricas], experiencia: ["Visualização e filtros", pagExperiencia], plano: ["Plano", pagPlano],
   rapido: ["Lançamento rápido", pagRapido], notificacoes: ["Notificações", pagNotificacoes], permissoes: ["Permissões", pagPermissoes],
@@ -1698,6 +1987,7 @@ function telaPerfil(){
     + itemMenu("casal", "💞", "Casal", !S.premium ? "Premium" : temCasal() ? "Com "+esc(S.parceiro.nome) : S.nuvem.casal ? "À espera do convite" : "Convidar parceiro(a)")
     + itemMenu("metricas", "🏅", "Métricas e conquistas", "Nível "+nv.n+" · "+CONQUISTAS.filter(c => c.ok()).length+" de "+CONQUISTAS.length+" conquistas")
     + itemMenu("experiencia", "🎛️", "Visualização e filtros", "Moeda, lista e gráfico")
+    + itemMenu("carteiras", "🏦", "Contas e cartões", carteirasVis().length ? carteirasVis().length+" cadastrada"+(carteirasVis().length > 1 ? "s" : "") : "Bancos, cartões e carteiras")
     + itemMenu("categorias", "🏷️", "Categorias", (S.arvore || []).length+" principais · "+(S.arvore || []).reduce((a,c) => a + c.subs.length, 0)+" subcategorias")
     + itemMenu("plano", "⭐", "Plano", PRO().admin ? "Admin" : S.premium ? (PRO().servidor && PRO().expiraMs ? "Premium até "+dataLonga(PRO().expiraMs) : "Premium") : PRO().pendente ? "Pedido enviado" : "Base")
     + (PRO().admin ? itemMenu("admin", "🛠️", "Painel admin", "Pedidos, usuários, códigos e configurações") : '')
@@ -1781,7 +2071,7 @@ function ligarResto(){
     perfilPag = k; window.scrollTo(0, 0); render(false);
   });
   const pv = $("#pagVoltar"); if (pv) pv.onclick = () => { perfilPag = null; render(false); };
-  ligarCategorias();
+  ligarCategorias(); ligarCarteiras();
   $$("[data-vpad]").forEach(b => b.onclick = () => { vista = b.dataset.vpad; gravarPref("vista", vista); render(false); });
   $$("[data-gpad]").forEach(b => b.onclick = () => { grafVista = b.dataset.gpad; gravarPref("graf", grafVista); render(false); });
   $$("[data-fundo]").forEach(b => b.onclick = () => { fundoTema = b.dataset.fundo; gravarPref("fundoTema", fundoTema); aplicarTema(); vibrar(); render(false); });
@@ -2315,12 +2605,15 @@ function folhaNovo(receitaInicial, quandoInicial){
   if (quando === "mensal" || quando === "vezes") quando = "repetir";
   let data = isoData(Date.now()), primeira = isoData(Date.now()), freq = "m", comFim = false, vezes = 3, variavel = false, pagoJa = null;
   const evitar = S.refs.filter(r => r.evitar);
+  let ca = lerPref("carteira", ""), dm = "", dvTxt = "", rvTxt = "";
+  if (!minhasCarteiras().some(c => c.id === ca)) ca = "";
   abrirFolha('<div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
     + '<div class="com-voz"><input class="entrada-grande" id="txtGasto" autocomplete="off" enterkeyhint="done">'
     + (typeof ponte.ouvir === "function" ? '<button class="mic" id="mic" aria-label="Lançar por voz"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>' : '')
     + '</div>'
     + '<div class="chips" id="quando"></div><div id="quandoBox"></div>'
     + '<div class="chips rolar" id="chipsCat"></div><div class="chips rolar sub-cat" id="chipsSub"></div><p class="dica-cat">Toque numa categoria ou escreva no fim: “12 corte de cabelo saúde”</p><div id="prevEq" style="margin:0 18px;min-height:22px"></div>'
+    + '<div id="carteiraBox"></div><div id="destinoBox"></div>'
     + '<div id="nosBox"></div>'
     + '<button class="btn" id="salvarGasto">Adicionar</button>'
     + (!RAPIDO && typeof ponte.escolherFatura === "function" ? '<button class="btn sec" id="lerFatura">📄 Ler fatura (PDF ou foto)</button>' : '')
@@ -2336,7 +2629,25 @@ function folhaNovo(receitaInicial, quandoInicial){
       if (nota && quando === "data") nota.textContent = dataFutura() ? "Data futura: fica programada e entra no “comprometido” desse mês." : "Fica registrado com essa data.";
       if (nota && quando === "repetir") nota.textContent = comFim ? (d ? vezes+" × "+din(d.v)+" = "+din(vezes*d.v)+" no total" : "Escreva o valor de cada vez.") : "Repete "+FREQ[freq]+" até você excluir.";
     };
+    const imediato = () => quando === "hoje" || (quando === "data" && !dataFutura());
+    const numTxt = t => { const v = parseFloat(String(t).replace(/\s/g, "").replace(",", ".")); return isNaN(v) ? 0 : v; };
+    const montarExtras = () => {
+      const cb = $("#carteiraBox", f), db = $("#destinoBox", f);
+      cb.innerHTML = imediato() ? chipsCarteira(ca, "data-ca") : "";
+      $$("[data-ca]", cb).forEach(b => b.onclick = () => { ca = b.dataset.ca; montarExtras(); });
+      if (!(receita && imediato())){ db.innerHTML = ""; return; }
+      const ms = S.metasVis;
+      db.innerHTML = '<div class="rotulo">Destinar esta entrada (opcional)</div>'
+        + (ms.length ? '<div class="chips rolar"><button class="chip'+(dm ? "" : " on")+'" data-dm="">Nenhuma meta</button>'+ms.map(m => '<button class="chip'+(dm === m.id ? " on" : "")+'" data-dm="'+m.id+'">'+esc(m.e)+' '+esc(m.n)+'</button>').join("")+'</div>' : '')
+        + (dm ? '<label class="campo"><span>Quanto vai para a meta (vazio = tudo)</span><input id="dvIn" inputmode="decimal" placeholder="tudo" value="'+esc(dvTxt)+'"></label>' : '')
+        + '<label class="campo"><span>Reservar sem gastar (vazio = nada)</span><input id="rvIn" inputmode="decimal" placeholder="0" value="'+esc(rvTxt)+'"></label>'
+        + '<p class="nota">Uma parte ou tudo: o que for destinado ou reservado sai do “livre” e continua contando como entrada.</p>';
+      $$("[data-dm]", db).forEach(b => b.onclick = () => { dm = b.dataset.dm; montarExtras(); });
+      const dv = $("#dvIn", db); if (dv) dv.oninput = () => { dvTxt = dv.value; };
+      const rv = $("#rvIn", db); if (rv) rv.oninput = () => { rvTxt = rv.value; };
+    };
     const montarQuando = () => {
+      montarExtras();
       $("#quando", f).innerHTML = [["hoje","Hoje"],["data","Outra data"],["repetir", S.premium ? "Repetir" : "Repetir 🔒"]]
         .map(([k,n]) => '<button class="chip'+(quando === k ? " on" : "")+'" data-q="'+k+'">'+n+'</button>').join("");
       $$("#quando .chip", f).forEach(bt => bt.onclick = () => {
@@ -2388,10 +2699,17 @@ function folhaNovo(receitaInicial, quandoInicial){
     window.focarEntrada = () => inp.focus();
     const salvar = () => {
       let r, programado = false, msg = "";
-      if (quando === "hoje") r = ponte.adicionarGasto(inp.value, escolhida, receita, sh, "");
+      const dd = valorDigitado(), extra = {ca};
+      if (receita && imediato() && dd){
+        const dv = dm ? (dvTxt.trim() ? numTxt(dvTxt) : dd.v) : 0, rv = numTxt(rvTxt);
+        if (dv + rv > dd.v + 0.004){ aviso("Meta + reserva passam do valor da entrada"); return; }
+        Object.assign(extra, {dm, dv, rv});
+      }
+      if (imediato()) gravarPref("carteira", ca);
+      if (quando === "hoje") r = ponte.adicionarGastoEx(inp.value, escolhida, receita, sh, "", JSON.stringify(extra));
       else if (quando === "data" && !dataFutura()){
         const [a, m, d] = data.split("-").map(Number);
-        r = ponte.adicionarGasto(inp.value, escolhida, receita, sh, String(new Date(a, m-1, d, hj.getHours(), hj.getMinutes()).getTime()));
+        r = ponte.adicionarGastoEx(inp.value, escolhida, receita, sh, String(new Date(a, m-1, d, hj.getHours(), hj.getMinutes()).getTime()), JSON.stringify(extra));
       } else if (quando === "data"){
         const [a, m, d] = data.split("-").map(Number);
         r = ponte.adicionarRecorrente(inp.value, escolhida, receita, sh, data, "m", 1, false, false);
@@ -2551,34 +2869,27 @@ function folhaDetalhe(id){
     + '<p class="detalhe-d">'+esc(g.d)+'<br>'+cat(g.c)[0]+' '+esc(g.c)+' · '+d.toLocaleDateString("pt-BR",{day:"numeric",month:"long",year:"numeric"})+', '+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})
     + (temCasal() ? '<br>'+bolinha(g.dono)+' Lançado por '+esc(nomeDe(g.dono))+(g.sh ? ' · compartilhado (Nós)' : ' · pessoal') : '')+'</p>'
     + (r ? '' : '<div style="margin:-6px 0 12px">'+equivalencia(g.v).replace('class="eq"','class="eq" style="margin:0 18px"')+'</div>')
-    + (dono ? '<div class="linha-botoes"><button class="btn sec" id="dEditar">Editar</button><button class="btn sec" id="dDup">Duplicar</button></div>' : '')
-    + '<div class="linha-botoes"><button class="btn sec" id="dCom">Comentários'+(g.cm.length ? " ("+g.cm.length+")" : "")+'</button>'
-    + (dono ? '<button class="btn sec" id="dApagar" style="color:var(--late)">Apagar</button>' : '<button class="btn sec" id="dCurtir">'+(g.l ? "Descurtir" : "Curtir")+'</button>')+'</div>', f => {
-    const e = $("#dEditar", f); if (e) e.onclick = () => {
-      fecharFolha(true);
-      const el = $('.post[data-id="'+id+'"]');
-      if (el){ el.scrollIntoView({block:"center", behavior:"smooth"}); editarNoCartao(el, id); } else folhaEditar(id);
-    };
-    const du = $("#dDup", f); if (du) du.onclick = () => { aplicar(ponte.duplicarGasto(id)); vibrar(); fecharFolha(); render(false); aviso("Duplicado com a data de hoje"); verificarConquistas(); };
-    $("#dCom", f).onclick = () => folhaComentarios(id);
-    const ap = $("#dApagar", f); if (ap) ap.onclick = () => { fecharFolha(); apagarGasto(id); };
-    const cu = $("#dCurtir", f); if (cu) cu.onclick = () => { curtir(id); fecharFolha(); };
-  });
+    + (g.ca && carteiraDe(g.ca) ? '<p class="detalhe-d">'+esc(carteiraDe(g.ca).e)+' '+esc(carteiraDe(g.ca).n)+'</p>' : '')
+    + (r && g.dv && g.dm ? '<p class="detalhe-d">🎯 '+din(g.dv)+' '+destinoTexto(g.dm)+'</p>' : '')
+    + (r && g.rv ? '<p class="detalhe-d">🔒 '+din(g.rv)+' reservado</p>' : '')
+    + '<p class="nota" style="text-align:center">'+(dono ? "Segure o cartão para editar, duplicar ou apagar." : "Toque duas vezes no cartão para curtir.")+'</p>', () => {});
 }
 function folhaEditar(id){
   const g = achar(id); if (!g || !meu(g)) return;
-  let receita = g.t === "r", escolhida = g.c, sh = !!g.sh;
+  let receita = g.t === "r", escolhida = g.c, sh = !!g.sh, caE = g.ca || "";
   abrirFolha('<h3>Editar</h3><div class="seg"><button data-r="0">Saída</button><button data-r="1">Entrada</button></div>'
     + '<label class="campo"><span>Valor</span><input id="eV" inputmode="decimal" value="'+String(g.v).replace(".", ",")+'"></label>'
     + '<label class="campo"><span>Descrição</span><input id="eD" value="'+esc(g.d)+'"></label>'
     + '<label class="campo"><span>Data</span><input id="eDt" type="date" value="'+isoData(g.q)+'"></label>'
-    + '<div class="rotulo">Categoria</div><div id="eC"></div><div id="nosBox"></div><button class="btn" id="eSalvar">Salvar alterações</button>', f => {
+    + '<div class="rotulo">Categoria</div><div id="eC"></div><div id="eCart"></div><div id="nosBox"></div><button class="btn" id="eSalvar">Salvar alterações</button>', f => {
     let rodaDe = null;
     const montar = () => {
       $$(".seg button", f).forEach(b => b.classList.toggle("on", (b.dataset.r === "1") === receita));
       if (rodaDe !== receita){ rodaDe = receita; roda($("#eC", f), itensCategoria(receita, false), escolhida, v => { escolhida = v; }); }
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
+      const ec = $("#eCart", f); ec.innerHTML = chipsCarteira(caE, "data-cae");
+      $$("[data-cae]", ec).forEach(b => b.onclick = () => { caE = b.dataset.cae; montar(); });
     };
     $$(".seg button", f).forEach(b => b.onclick = () => {
       receita = b.dataset.r === "1";
@@ -2591,6 +2902,7 @@ function folhaEditar(id){
       const [a, m, d] = $("#eDt", f).value.split("-").map(Number);
       const orig = new Date(g.q);
       const nq = a ? new Date(a, m-1, d, orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds()).getTime() : g.q;
+      if ((g.ca || "") !== caE) aplicar(ponte.mudarCarteira(id, caE));
       if (!aplicar(ponte.editarGasto(id, String(nq), $("#eV", f).value, $("#eD", f).value, escolhida, receita, sh)).ok){ aviso("Confira o valor e a descrição"); return; }
       vibrar(); fecharFolha(); render(false); aviso("Alterações salvas");
     };

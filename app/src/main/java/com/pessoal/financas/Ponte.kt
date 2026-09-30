@@ -25,6 +25,7 @@ object Estado {
             }
             lancs.put(JSONObject().put("id", l.id).put("q", l.q).put("v", l.v).put("d", l.d).put("c", l.c)
                 .put("t", if (l.receita) "r" else "d").put("sh", l.sh).put("dono", l.dono).put("cf", l.cf)
+                .put("ca", l.ca).put("rv", l.rv).put("dm", l.dm).put("dv", l.dv)
                 .put("l", cs.any { it.dono == me }).put("lc", cs.size).put("cm", cm))
         }
 
@@ -90,6 +91,8 @@ object Estado {
             .put("gastos", lancs)
             .put("contas", contas)
             .put("metas", metas)
+            .put("carteiras", JSONArray().also { a -> Armazem.carteiras(ctx).forEach { c ->
+                a.put(JSONObject().put("id", c.id).put("n", c.nome).put("e", c.emoji).put("t", c.tipo).put("si", c.inicial).put("sh", c.sh).put("dono", c.dono)) } })
             .put("refs", refs)
             .put("trocas", trocas)
             .put("categorias", JSONArray(Categorias.todas))
@@ -189,6 +192,25 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
         quando.toLongOrNull()?.let { g = g.copy(quando = it) }
         return mudar { Armazem.adicionar(ctx, g, sh) }
     }
+
+    /** Como adicionarGasto, com carteira e destino da entrada: extra = {"ca":id,"rv":reservado,"dm":metaId,"dv":valor}. */
+    @JavascriptInterface fun adicionarGastoEx(texto: String, categoria: String, receita: Boolean, sh: Boolean, quando: String, extra: String): String {
+        var g = Interpretador.interpretar(texto, receita) ?: return resp(false)
+        if (categoria.isNotBlank()) g = g.copy(categoria = categoria)
+        quando.toLongOrNull()?.let { g = g.copy(quando = it) }
+        val ex = try { JSONObject(extra) } catch (e: Exception) { JSONObject() }
+        return mudar { Armazem.adicionar(ctx, g, sh, ex) }
+    }
+
+    @JavascriptInterface fun mudarCarteira(id: String, ca: String): String = mudar { Armazem.mudarCarteira(ctx, id, ca) }
+
+    @JavascriptInterface fun salvarCarteira(id: String, nome: String, emoji: String, tipo: String, inicial: String, sh: Boolean): String {
+        if (nome.isBlank()) return resp(false, "Escreva o nome")
+        val v = if (inicial.isBlank()) 0.0 else (Interpretador.paraNumero(inicial.replace("-", "")) ?: return resp(false, "Saldo inválido")) * (if (inicial.trim().startsWith("-")) -1 else 1)
+        return mudar { Armazem.salvarCarteira(ctx, id, nome.trim(), emoji.ifBlank { "🏦" }, tipo, v, sh) }
+    }
+
+    @JavascriptInterface fun removerCarteira(id: String): String = mudar { Armazem.apagar(ctx, id) }
 
     @JavascriptInterface fun detectar(texto: String, receita: Boolean): String {
         val g = Interpretador.interpretar(texto, receita) ?: return ""

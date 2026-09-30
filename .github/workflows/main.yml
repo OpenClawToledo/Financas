@@ -52,6 +52,8 @@ jobs:
           echo "Publicada a versão 1.9 ($N)"
 
   ios:
+    # Pausado por ordem do dono: sem gastar minutos de macOS até segunda ordem. Para religar, apague a linha abaixo.
+    if: false
     needs: apk
     runs-on: macos-latest
     steps:

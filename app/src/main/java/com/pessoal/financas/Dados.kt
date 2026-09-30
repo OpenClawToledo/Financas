@@ -21,7 +21,11 @@ data class Gasto(
     val categoriaEscrita: Boolean = false   // o usuário escreveu a categoria no texto
 )
 
-data class Lanc(val id: String, val q: Long, val v: Double, val d: String, val c: String, val receita: Boolean, val sh: Boolean, val dono: String, val cf: String)
+data class Lanc(val id: String, val q: Long, val v: Double, val d: String, val c: String, val receita: Boolean, val sh: Boolean, val dono: String, val cf: String,
+    val ca: String = "", val rv: Double = 0.0, val dm: String = "", val dv: Double = 0.0)
+
+/** Conta bancária, cartão ou carteira. t = "b" banco, "c" cartão, "w" carteira/dinheiro. sh = o casal vê. */
+data class Carteira(val id: String, val nome: String, val emoji: String, val tipo: String, val inicial: Double, val sh: Boolean, val dono: String)
 /** Uma ocorrência da conta: a data em que vence, qual é (1 = primeira) e a chave usada para marcar como paga. */
 data class Ocorrencia(val data: java.time.LocalDate, val n: Int, val chave: String)
 
@@ -132,15 +136,16 @@ object Armazem {
         bloco(r)?.let { b(ctx).salvar(it); Nuvem.agendar(ctx) }
     }
 
-    fun apagar(ctx: Context, id: String) = alterar(ctx, id) { it.copy(apagado = true) }
-    fun restaurar(ctx: Context, id: String) = alterar(ctx, id) { it.copy(apagado = false) }
+    fun apagar(ctx: Context, id: String) { alterar(ctx, id) { it.copy(apagado = true) }; if (b(ctx).um(id)?.tipo == "lanc") sincronizarAporte(ctx, id) }
+    fun restaurar(ctx: Context, id: String) { alterar(ctx, id) { it.copy(apagado = false) }; if (b(ctx).um(id)?.tipo == "lanc") sincronizarAporte(ctx, id) }
 
     // ---------- Lançamentos ----------
     private fun paraLanc(r: Reg): Lanc {
         val o = r.dados
         val rec = o.optString("t") == "r"
         val d = o.optString("d")
-        return Lanc(r.id, o.optLong("q"), o.optDouble("v", 0.0), d, Categorias.canon(o.optString("c")).ifEmpty { Categorias.detectar(d, rec) }, rec, r.sh, r.dono, o.optString("cf"))
+        return Lanc(r.id, o.optLong("q"), o.optDouble("v", 0.0), d, Categorias.canon(o.optString("c")).ifEmpty { Categorias.detectar(d, rec) }, rec, r.sh, r.dono, o.optString("cf"),
+            o.optString("ca"), o.optDouble("rv", 0.0), o.optString("dm"), o.optDouble("dv", 0.0))
     }
 
     fun lancamentos(ctx: Context): List<Lanc> = b(ctx).todos("lanc").map { paraLanc(it) }.sortedByDescending { it.q }
@@ -148,13 +153,59 @@ object Armazem {
     private fun dadosLanc(g: Gasto) = JSONObject().put("q", g.quando).put("v", g.valor).put("d", g.descricao)
         .put("c", g.categoria).put("t", if (g.receita) "r" else "d")
 
-    fun adicionar(ctx: Context, g: Gasto, sh: Boolean = false): String = novo(ctx, "lanc", sh, dadosLanc(g))
+    /** extra (opcional): ca = carteira, rv = valor reservado da entrada, dm/dv = meta e valor destinados. */
+    fun adicionar(ctx: Context, g: Gasto, sh: Boolean = false, extra: JSONObject? = null): String {
+        val d = dadosLanc(g)
+        if (extra != null) {
+            extra.optString("ca").takeIf { it.isNotEmpty() }?.let { d.put("ca", it) }
+            if (g.receita) {
+                extra.optDouble("rv", 0.0).takeIf { it > 0 }?.let { d.put("rv", minOf(it, g.valor)) }
+                val dv = extra.optDouble("dv", 0.0)
+                if (dv > 0 && extra.optString("dm").isNotEmpty()) d.put("dm", extra.optString("dm")).put("dv", minOf(dv, g.valor))
+            }
+        }
+        val id = novo(ctx, "lanc", sh, d)
+        sincronizarAporte(ctx, id)
+        return id
+    }
+
+    /** O aporte de uma entrada segue a entrada: existe só enquanto ela existe e vale o que foi destinado. */
+    private fun sincronizarAporte(ctx: Context, lancId: String) {
+        val l = b(ctx).um(lancId) ?: return
+        val existentes = b(ctx).todos("aporte").filter { it.dados.optString("lanc") == lancId }
+        val quer = !l.apagado && l.dados.optString("dm").isNotEmpty() && l.dados.optDouble("dv", 0.0) > 0 && b(ctx).um(l.dados.optString("dm"))?.apagado == false
+        existentes.forEach { if (it.dono == eu(ctx)) { if (!quer) b(ctx).salvar(it.copy(apagado = true)) } }
+        if (quer && existentes.isEmpty()) {
+            val m = b(ctx).um(l.dados.optString("dm"))!!
+            novo(ctx, "aporte", m.sh, JSONObject().put("meta", m.id).put("v", l.dados.optDouble("dv")).put("q", l.dados.optLong("q")).put("lanc", lancId))
+        }
+        Nuvem.agendar(ctx)
+    }
+
+    // ---------- Contas, cartões e carteiras ----------
+    fun carteiras(ctx: Context): List<Carteira> = b(ctx).todos("carteira").map { r ->
+        val o = r.dados
+        Carteira(r.id, o.optString("n"), o.optString("e", "🏦"), o.optString("t", "b"), o.optDouble("si", 0.0), r.sh, r.dono)
+    }
+
+    fun salvarCarteira(ctx: Context, id: String, nome: String, emoji: String, tipo: String, inicial: Double, sh: Boolean) {
+        val d = JSONObject().put("n", nome).put("e", emoji).put("t", if (tipo in listOf("b", "c", "w")) tipo else "b").put("si", inicial)
+        if (id.isEmpty()) { novo(ctx, "carteira", sh, d); return }
+        val r = b(ctx).um(id) ?: return
+        if (r.dono != eu(ctx)) return
+        b(ctx).salvar(r.copy(sh = sh, dados = d)); Nuvem.agendar(ctx)
+    }
+
+    fun mudarCarteira(ctx: Context, id: String, ca: String) = alterar(ctx, id) { r ->
+        val d = JSONObject(r.dados.toString()); if (ca.isEmpty()) d.remove("ca") else d.put("ca", ca); r.copy(dados = d)
+    }
 
     fun editar(ctx: Context, id: String, g: Gasto, sh: Boolean) {
         val r = b(ctx).um(id) ?: return
         if (r.dono != eu(ctx)) return
         val dados = dadosLanc(g)
         r.dados.optString("cf").takeIf { it.isNotEmpty() }?.let { dados.put("cf", it) }
+        listOf("ca", "rv", "dm", "dv").forEach { k -> if (r.dados.has(k)) dados.put(k, r.dados.get(k)) }
         if (r.sh && !sh) {
             // Deixar de compartilhar: o registro antigo é apagado (o parceiro recebe a remoção) e nasce um privado
             b(ctx).salvar(r.copy(apagado = true))
