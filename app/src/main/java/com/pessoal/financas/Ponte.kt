@@ -209,6 +209,17 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
         return mudar { Armazem.editarConta(ctx, id, nome.trim(), v, cat, dia) }
     }
 
+    /** Muda a conta inteira, inclusive a forma de repetir (ver Armazem.redefinirConta). desde = yyyy-MM-dd. */
+    @JavascriptInterface fun redefinirConta(id: String, nome: String, valor: String, cat: String, desde: String,
+                                            freq: String, pm: Int, vezes: Int, variavel: Boolean): String {
+        val v = Interpretador.paraNumero(valor)
+        if (v == null || v <= 0 || nome.isBlank()) return resp(false, "Confira o nome e o valor")
+        val d = try { java.time.LocalDate.parse(desde) } catch (e: Exception) { return resp(false, "Confira a data") }
+        if (vezes < 0 || vezes > 600) return resp(false, "Confira o número de vezes")
+        if (vezes != 1 && !Armazem.premium(ctx)) return resp(false, "Repetir contas é um recurso Premium")
+        return mudar { Armazem.redefinirConta(ctx, id, nome.trim(), v, cat, freq, pm, d, vezes, variavel) }
+    }
+
     @JavascriptInterface fun duplicarGasto(id: String): String = mudar { Armazem.duplicar(ctx, id) }
     @JavascriptInterface fun apagar(id: String): String = mudar { Armazem.apagar(ctx, id) }
     @JavascriptInterface fun restaurar(id: String): String = mudar { Armazem.restaurar(ctx, id) }

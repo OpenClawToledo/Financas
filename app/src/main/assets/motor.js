@@ -366,6 +366,15 @@
         return r;
       });
     },
+    redefinirConta(id, nome, valor, categoria, freq, pm, desde, vezes, variavel) {
+      this.alterar(id, r => {
+        const f = vezes !== 1 && (freq === "q" || freq === "s") ? freq : "m";
+        const iso = desde.getUTCFullYear() + "-" + pad(desde.getUTCMonth() + 1) + "-" + pad(desde.getUTCDate());
+        Object.assign(r.dados, { n: nome, v: valor, c: categoria, freq: f, pm: f === "m" && vezes !== 1 ? Math.max(1, pm || 1) : 1,
+          ini: iso.slice(0, 7), dia: desde.getUTCDate(), d0: f === "m" ? "" : iso, vezes, var: !!variavel && vezes === 0 });
+        return r;
+      });
+    },
     pagoDe: (contaId, chave) => Banco.todos("pago").find(r => r.dados.conta === contaId && r.dados.mes === chave) || null,
     ocorrenciasComPagamento(c) { return ocorrenciasAgora(c).map(o => [o, this.pagoDe(c.id, o.chave)]); },
     alternarPaga(contaId, valorReal, chave) {
@@ -908,6 +917,15 @@
       const v = Interpretador.paraNumero(valor);
       if (v === null || v <= 0 || !String(nome || "").trim()) return resp(false);
       return mudar(() => Armazem.editarConta(id, nome.trim(), v, cat, +dia || 0));
+    },
+    redefinirConta(id, nome, valor, cat, desde, freq, pm, vezes, variavel) {
+      const v = Interpretador.paraNumero(valor);
+      if (v === null || v <= 0 || !String(nome || "").trim()) return resp(false, "Confira o nome e o valor");
+      const d = Datas.parse(desde); if (!d) return resp(false, "Confira a data");
+      vezes = parseInt(vezes) || 0;
+      if (vezes < 0 || vezes > 600) return resp(false, "Confira o número de vezes");
+      if (vezes !== 1 && !Armazem.premium()) return resp(false, "Repetir contas é um recurso Premium");
+      return mudar(() => Armazem.redefinirConta(id, nome.trim(), v, cat, freq, parseInt(pm) || 1, d, vezes, !!variavel));
     },
     duplicarGasto: id => mudar(() => Armazem.duplicar(id)),
     apagar: id => mudar(() => Armazem.apagar(id)),

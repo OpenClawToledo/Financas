@@ -1619,7 +1619,7 @@ function ligarPosts(){
   });
 }
 function ligarResto(){
-  $$("[data-conta]").forEach(b => b.onclick = () => folhaConta(b.dataset.conta));
+  $$("[data-conta]").forEach(ligarPrevista);
   $$("[data-pag]").forEach(b => b.onclick = () => {
     const k = b.dataset.pag;
     if (k === "feedback"){ folhaFeedback(); return; }
@@ -1686,9 +1686,25 @@ function ligarResto(){
   const im = $("#importar"); if (im) im.onclick = () => confirmar("Restaurar backup?", "Os seus dados atuais neste celular serão substituídos pelos do arquivo escolhido.", "Escolher arquivo", () => ponte.importar());
   ligarConta();
 }
+/* Linha "prevista" (vem de uma conta que se repete): tocar abre a conta, segurar edita a conta.
+   Não tem Editar/Duplicar/Comentários/Apagar: não é um lançamento, é a conta. */
+function ligarPrevista(b){
+  if (b.dataset.ligada) return; b.dataset.ligada = "1";
+  let t = null, segurou = false, x0 = 0, y0 = 0;
+  const parar = () => { clearTimeout(t); t = null; b.classList.remove("segurando"); };
+  b.addEventListener("contextmenu", e => e.preventDefault());
+  b.addEventListener("pointerdown", e => {
+    segurou = false; x0 = e.clientX; y0 = e.clientY;
+    t = setTimeout(() => { t = null; segurou = true; vibrar(); folhaEditarConta(b.dataset.conta); }, 480);
+  });
+  b.addEventListener("pointermove", e => { if (t && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) parar(); });
+  b.addEventListener("pointerup", parar);
+  b.addEventListener("pointercancel", parar);
+  b.onclick = e => { if (segurou){ e.preventDefault(); segurou = false; return; } folhaConta(b.dataset.conta); };
+}
 function ligarLista(){
   $$("[data-abrir]").forEach(b => b.onclick = () => folhaDetalhe(b.dataset.abrir));
-  $$("#listaExtrato [data-conta]").forEach(b => b.onclick = () => folhaConta(b.dataset.conta));
+  $$("#listaExtrato [data-conta]").forEach(ligarPrevista);
 }
 function contar(el, alvo){
   const t0 = performance.now(), dur = 900;
@@ -2470,7 +2486,8 @@ function folhaConta(id){
   }
   abrirFolha('<h3>'+esc(c.n)+(c.sh ? '<span class="nos-tag">Nós</span>' : '')+'</h3><div class="detalhe-v'+(c.e ? " pos" : "")+'">'+(c.var ? "≈ " : "")+(c.e ? "+" : "")+din(c.v)+'</div>'
     + '<p class="detalhe-d">'+(c.e ? "Entrada" : "Conta")+': '+esc(descConta(c))+'.'+(ocs.length ? '' : '<br>Não acontece neste mês.')+'</p>'
-    + corpo + (meu(c) ? '<button class="btn sec" id="excluirConta" style="color:var(--late)">Excluir</button>' : ''), f => {
+    + corpo + (meu(c) ? '<div class="linha-botoes" style="margin:12px 0 0"><button class="btn sec" id="editarConta">Editar</button><button class="btn sec" id="excluirConta" style="color:var(--late)">Excluir</button></div>' : ''), f => {
+    const ed = $("#editarConta", f); if (ed) ed.onclick = () => folhaEditarConta(id);
     const pagar = (chave, valor) => {
       const r = aplicar(ponte.alternarPaga(c.id, valor || "", chave));
       if (!r.ok){ aviso(r.msg); return false; }
@@ -2481,6 +2498,94 @@ function folhaConta(id){
     $$("[data-oc]", f).forEach(bt => bt.onclick = () => { if (pagar(bt.dataset.oc, "")){ render(false); folhaConta(id); } });
     const ex = $("#excluirConta", f);
     if (ex) ex.onclick = () => confirmar("Excluir “"+esc(c.n)+"”?", "As próximas deixam de aparecer. O que já foi pago continua no extrato.", "Excluir", () => { aplicar(ponte.apagar(c.id)); render(false); });
+  });
+}
+
+/* ---------- Editar a conta inteira: nome, valor, categoria e como se paga ---------- */
+const TIPOS_CONTA = [["u",1,"Data única"],["m",1,"Todo mês"],["m",2,"2 em 2 meses"],["m",3,"3 em 3 meses"],["m",6,"6 em 6 meses"],["m",12,"Todo ano"],["q",1,"A cada 15 dias"],["s",1,"Toda semana"]];
+function folhaEditarConta(id){
+  const c = S.contas.find(x => x.id === id); if (!c) return;
+  if (!meu(c)){ aviso("Só quem criou a conta pode editar"); return; }
+  const receita = !!c.e;
+  const tipoDe = x => x.vezes === 1 ? "u" : (x.freq === "q" || x.freq === "s") ? x.freq : "m";
+  const tipo0 = tipoDe(c), pm0 = tipo0 === "m" ? Math.max(1, c.pm || 1) : 1;
+  const ini0 = (() => {
+    if ((c.freq === "q" || c.freq === "s") && c.d0) return c.d0;
+    const [a, m] = (c.ini || mesStr(MES_ATUAL.ano, MES_ATUAL.mes)).split("-").map(Number);
+    return a+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(c.dia || 1, new Date(a, m, 0).getDate())).padStart(2,"0");
+  })();
+  let tipo = tipo0, pm = pm0, data = ini0, comFim = c.vezes > 1, vezes = c.vezes > 1 ? c.vezes : 3, variavel = !!c.var;
+  let nome = c.n, valor = String(c.v).replace(".", ",");
+  let escolhida = c.c || (receita ? (/sal[aá]rio|ordenado|vencimento/i.test(c.n) ? "Receitas › Salário" : OUTRAS_REC) : "Casa");
+  const mudouForma = () => tipo !== tipo0 || pm !== pm0;
+  // próxima vez que ainda não foi paga (a partir de hoje): é daí que a nova forma recomeça
+  const proxima = () => {
+    const hj = new Date(); hj.setHours(0,0,0,0);
+    const pagas = new Set((c.ocs || []).filter(o => o.paga).map(o => o.chave));
+    for (let k = 0; k < 36; k++){
+      const a = MES_ATUAL.ano + Math.floor((MES_ATUAL.mes + k) / 12), m = (MES_ATUAL.mes + k) % 12;
+      const o = ocorrencias(c, a, m).find(o => !pagas.has(o.chave) && o.d >= hj);
+      if (o) return o;
+    }
+    return null;
+  };
+  const trocarForma = (t, p) => {
+    const antes = mudouForma();
+    tipo = t; pm = p;
+    if (!mudouForma()){ data = ini0; vezes = c.vezes > 1 ? c.vezes : vezes; comFim = c.vezes > 1; return; }
+    if (!antes){
+      const o = proxima();
+      data = o ? isoData(o.d.getTime()) : isoData(Date.now());
+      if (c.vezes > 1 && o) vezes = Math.max(1, c.vezes - o.n + 1);
+    }
+  };
+  abrirFolha('<h3>Editar '+(receita ? "entrada" : "conta")+'</h3>'
+    + '<label class="campo"><span>Nome</span><input id="ecN" value="'+esc(nome)+'"></label>'
+    + '<label class="campo"><span>Valor'+(c.var ? " (estimativa)" : "")+'</span><input id="ecV" inputmode="decimal" value="'+esc(valor)+'"></label>'
+    + '<div class="rotulo">Categoria</div><div class="chips rolar" id="ecCat"></div><div class="chips rolar sub-cat" id="ecSub"></div>'
+    + '<div class="rotulo">Como se paga</div><div class="chips" id="ecTipo"></div><div id="ecBox"></div>'
+    + '<button class="btn" id="ecSalvar">Salvar</button>', f => {
+    $("#ecN", f).oninput = e => { nome = e.target.value; };
+    $("#ecV", f).oninput = e => { valor = e.target.value; nota(); };
+    ligarChipsCat(f, "ecCat", "ecSub", () => receita, () => escolhida, v => { escolhida = v; }, false);
+    const nota = () => {
+      const n = $("#ecNota", f); if (!n) return;
+      const [a, m, d] = data.split("-").map(Number);
+      const quando = d+" de "+MESES_L[m-1]+(a !== MES_ATUAL.ano ? " de "+a : "");
+      const v = parseFloat(String(valor).replace(/\./g, "").replace(",", ".")) || 0;
+      let t = tipo === "u" ? "Acontece uma vez, em "+quando+"."
+        : (comFim ? vezes+" vezes a partir de "+quando+(v ? " · "+din(v*vezes)+" no total" : "")+"." : "Repete a partir de "+quando+" até você excluir.");
+      if (mudouForma()) t += " O que já foi "+(receita ? "recebido" : "pago")+" continua no extrato.";
+      n.textContent = t;
+    };
+    const montar = () => {
+      $("#ecTipo", f).innerHTML = TIPOS_CONTA.map(([t, p, n]) => '<button class="chip'+(tipo === t && (t !== "m" || pm === p) ? " on" : "")+'" data-t="'+t+'" data-p="'+p+'">'+n+(t !== "u" && !S.premium ? " 🔒" : "")+'</button>').join("");
+      $$("#ecTipo .chip", f).forEach(bt => bt.onclick = () => {
+        if (bt.dataset.t !== "u" && !S.premium){ folhaPremium("Repetir contas (mensal, a cada 15 dias, semanal e parceladas) é um recurso Premium."); return; }
+        trocarForma(bt.dataset.t, +bt.dataset.p); vibrar(); montar();
+      });
+      let h = '<label class="campo"><span>'+(tipo === "u" ? "Data" : mudouForma() ? "Recomeça em" : "Primeira vez")+'</span><input id="ecData" type="date" value="'+data+'"></label>';
+      if (tipo !== "u"){
+        h += '<div class="chips"><button class="chip'+(comFim ? "" : " on")+'" data-fim="0">Sem fim</button><button class="chip'+(comFim ? " on" : "")+'" data-fim="1">Número de vezes (parcelas)</button></div>';
+        h += comFim ? '<label class="campo"><span>Quantas vezes'+(mudouForma() ? " a partir dessa data" : "")+'</span><input id="ecVezes" inputmode="numeric" value="'+vezes+'"></label>'
+                    : chave("ecVar", "O valor muda a cada vez", "Ex.: luz, água. O valor escrito vira a estimativa", variavel);
+      }
+      h += '<p class="nota" id="ecNota"></p>';
+      $("#ecBox", f).innerHTML = h;
+      $("#ecData", f).onchange = e => { data = e.target.value || data; nota(); };
+      $$("[data-fim]", f).forEach(bt => bt.onclick = () => { comFim = bt.dataset.fim === "1"; montar(); });
+      const ve = $("#ecVezes", f); if (ve) ve.oninput = () => { vezes = Math.min(600, Math.max(2, parseInt(ve.value) || 2)); nota(); };
+      const va = $("#ecVar", f); if (va) va.onclick = () => { variavel = !variavel; va.classList.toggle("on", variavel); };
+      nota();
+    };
+    montar();
+    $("#ecSalvar", f).onclick = () => {
+      const unica = tipo === "u";
+      const r = aplicar(ponte.redefinirConta(c.id, nome, valor, escolhida, data, unica ? "m" : tipo, unica ? 1 : pm,
+        unica ? 1 : (comFim ? vezes : 0), !unica && !comFim && variavel));
+      if (!r.ok){ aviso(r.msg || "Confira o nome e o valor"); return; }
+      vibrar(); fecharFolha(); render(false); aviso((receita ? "Entrada" : "Conta")+" atualizada");
+    };
   });
 }
 

@@ -221,6 +221,22 @@ object Armazem {
         r.copy(dados = o)
     }
 
+    /**
+     * Redefine a conta inteira: nome, valor, categoria e forma de repetir (freq "m" com pm meses, "q" ou "s";
+     * vezes 0 = sem fim, 1 = data única, N = parcelas). ini/dia/d0 passam a contar a partir de "desde".
+     * Os lançamentos e pagamentos já registados ficam como estão.
+     */
+    fun redefinirConta(ctx: Context, id: String, nome: String, valor: Double, categoria: String, freq: String, pm: Int,
+                       desde: java.time.LocalDate, vezes: Int, variavel: Boolean) = alterar(ctx, id) { r ->
+        val f = if (vezes != 1 && (freq == "q" || freq == "s")) freq else "m"
+        val o = JSONObject(r.dados.toString()).put("n", nome).put("v", valor).put("c", categoria)
+            .put("freq", f).put("pm", if (f == "m" && vezes != 1) maxOf(1, pm) else 1)
+            .put("ini", String.format("%04d-%02d", desde.year, desde.monthValue)).put("dia", desde.dayOfMonth)
+            .put("d0", if (f == "m") "" else desde.toString())
+            .put("vezes", vezes).put("var", variavel && vezes == 0)
+        r.copy(dados = o)
+    }
+
     /** Troca o valor de referência da conta (contas de valor variável: a última fatura vira a estimativa). */
     fun mudarValorConta(ctx: Context, id: String, valor: Double) = alterar(ctx, id) { it.copy(dados = JSONObject(it.dados.toString()).put("v", valor)) }
 
