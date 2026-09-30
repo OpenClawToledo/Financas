@@ -12,6 +12,23 @@
   --serif:"Noto Serif","Roboto Serif",Georgia,serif;
   --sans:Roboto,"Google Sans",system-ui,sans-serif;
 }
+/* Tema opcional "Seu Centavo": caderno de contas antigo (papel, tinta, carimbos) */
+body.tema-centavo{
+  --ink:#EDE2C4; --surface:#FBF5E3; --surface2:#E6D8B4; --line:#C9B68C;
+  --text:#2B2118; --muted:#76664F; --mango:#B9791F; --heart:#B3261E; --violet:#34458A; --ok:#2E7D4F; --late:#B3261E;
+  --marca:#2F6B4E; --marca-tx:#FBF5E3; --nav:rgba(237,226,196,.96);
+  --serif:"Courier Prime","Courier New",Courier,monospace;
+  background:repeating-linear-gradient(transparent 0 27px, rgba(120,90,50,.09) 27px 28px), var(--ink);
+}
+body.tema-centavo.fundo-kraft{--ink:#CDB083; --surface:#E2CDA2; --surface2:#BFA06E; --line:#8C7048; --muted:#5B4A33; --nav:rgba(205,176,131,.97)}
+body.tema-centavo.fundo-noite{--ink:#1C1712; --surface:#2A231A; --surface2:#3A3024; --line:#5A4A35; --text:#F1E6CC; --muted:#B5A482; --mango:#E0A23A; --heart:#F0716A; --violet:#9FB0F0; --ok:#6CCB92; --late:#F0716A; --marca:#E0A23A; --marca-tx:#1C1712; --nav:rgba(28,23,18,.97)}
+body.tema-centavo.fundo-noite{background:repeating-linear-gradient(transparent 0 27px, rgba(255,230,180,.05) 27px 28px), var(--ink)}
+body.tema-centavo .topo{background:linear-gradient(var(--ink) 75%,transparent)}
+body.tema-centavo nav{background:var(--nav);border-top:1px dashed var(--line)}
+body.tema-centavo .post .corpo, body.tema-centavo .heroi, body.tema-centavo .graf, body.tema-centavo .relogio, body.tema-centavo .menu-grupo{border:1px dashed var(--line);box-shadow:0 2px 0 rgba(120,90,50,.08)}
+body.tema-centavo .valor, body.tema-centavo .big, body.tema-centavo .med{font-family:var(--serif);letter-spacing:-.02em}
+body.tema-centavo .heroi::after{background:radial-gradient(circle,rgba(185,121,31,.18),transparent 70%)}
+body.tema-centavo .veu{background:rgba(43,33,24,.45)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.4;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
@@ -22,6 +39,35 @@ main{padding:0 0 110px}
 .topo h1{margin:0;font-family:var(--serif);font-size:1.55rem;font-weight:700;letter-spacing:-.01em}
 .mini-av{position:relative;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--surface2);border:2px solid var(--marca)}
 .pos{color:var(--ok)} .neg{color:var(--late)}
+
+/* ---------- Dinheiro de hoje (relógio) ---------- */
+.relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface)}
+.rel-topo{display:flex;align-items:flex-start;gap:12px}
+.rel-topo .txt{flex:1;min-width:0}
+.rel-topo small{display:block;color:var(--muted);font-size:.85rem}
+.rel-valor{font-family:var(--serif);font-size:1.9rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.rel-barra{position:relative;height:12px;border-radius:7px;background:var(--surface2);overflow:hidden;margin:12px 0 4px}
+.rel-barra i{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:linear-gradient(90deg,var(--marca),var(--ok));transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.rel-barra.aviso i{background:linear-gradient(90deg,var(--mango),#FF8A5B)}
+.rel-barra.estourou i{background:var(--late)}
+.rel-linha{position:relative;height:30px;margin:6px 2px 0;border-top:1px solid var(--line)}
+.rel-linha span{position:absolute;top:4px;font-size:.72rem;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+.rel-linha b{position:absolute;top:-5px;width:2px;height:9px;background:var(--text);transform:translateX(-50%)}
+.rel-linha b.fim{background:var(--late)}
+.rel-frase{margin:6px 0 0;font-size:.95rem}
+.rel-info{margin:6px 0 0;font-size:.85rem;color:var(--muted)}
+.rel-talao{margin:12px 0 0;padding-top:10px;border-top:1px dashed var(--line);font-family:var(--serif);font-size:.85rem}
+.rel-talao div{display:flex;gap:6px}
+.rel-talao div span:nth-child(2){flex:1;border-bottom:1px dotted var(--line);margin-bottom:4px}
+.rel-talao .tot{font-weight:700}
+.rel-hora{display:flex;gap:8px;align-items:center;margin-top:10px}
+.rel-hora input{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--ink)}
+.carimbo{display:inline-block;padding:3px 8px;border:2px solid currentColor;border-radius:6px;font-family:var(--serif);font-weight:700;font-size:.72rem;letter-spacing:.08em;transform:rotate(-6deg);opacity:.85}
+.carimbo.ok{color:var(--ok)} .carimbo.aviso{color:var(--mango)} .carimbo.mal{color:var(--late)}
+.centavo{flex:none;width:52px;height:52px}
+.fala-centavo{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-size:.86rem;color:var(--muted);font-style:italic}
+.fala-centavo svg{flex:none;width:22px;height:22px}
+.tempo-trab{margin:4px 0 0;font-size:.82rem;color:var(--muted)}
 
 /* ---------- Gráfico do mês (3 visões) ---------- */
 .graf{margin:0 18px 16px;padding:16px 16px 12px;border-radius:22px;background:var(--surface)}
@@ -845,6 +891,7 @@ window.recarregar = function(){
 };
 
 function render(animar){
+  aplicarTema();
   const tela = $("#tela");
   if (!S.nuvem.logado && !RAPIDO){
     document.body.classList.add("entrada");
@@ -1184,10 +1231,113 @@ function ligarGrafico(){
   });
 }
 
+/* ================= Dinheiro de hoje: quanto posso gastar e quanto tempo dura ================= */
+const DIA_INI = 7, DIA_FIM = 23;   // horas acordado
+let tema = lerPrefTema();
+function lerPrefTema(){ try { return localStorage.getItem("fin.tema") || "escuro"; } catch(e){ return "escuro"; } }
+let fundoTema = (() => { try { return localStorage.getItem("fin.fundoTema") || "papel"; } catch(e){ return "papel"; } })();
+function aplicarTema(){
+  const b = document.body;
+  b.classList.toggle("tema-centavo", tema === "centavo");
+  b.classList.toggle("fundo-kraft", fundoTema === "kraft");
+  b.classList.toggle("fundo-noite", fundoTema === "noite");
+}
+const valorHora = () => { const r = (S.refs || []).find(x => /hora/i.test(x.n) && x.v > 0); return r ? r.v : 0; };
+function tempoTrabalho(v){
+  const vh = valorHora(); if (!vh || !v) return "";
+  const min = Math.round(v / vh * 60);
+  if (min < 1) return "menos de 1 min";
+  if (min < 60) return min+" min";
+  const h = Math.floor(min / 60), m = min % 60;
+  return h+"h"+(m ? String(m).padStart(2, "0") : "");
+}
+const horaTxt = hf => { const h = Math.floor(hf), m = Math.round((hf - h) * 60); return (m === 60 ? h+1 : h)+"h"+String(m === 60 ? 0 : m).padStart(2, "0"); };
+function numerosHoje(){
+  const n = numerosMes();
+  const ag = new Date(), ini = new Date(ag.getFullYear(), ag.getMonth(), ag.getDate()).getTime();
+  const hoje = S.desp.filter(g => g.q >= ini && g.q <= Date.now() && !g.cf);
+  const gasto = hoje.reduce((a, g) => a + g.v, 0);
+  const temEntradas = n.entrou > 0 || S.contasMes.some(c => c.e);
+  const diasRest = S.diasNoMes - S.hoje + 1;
+  // o que sobra do mês depois das contas ainda por pagar, repartido pelos dias que faltam (hoje incluído)
+  const disponivel = n.livre + n.aReceber - n.compMes + gasto;
+  const orc = temEntradas ? Math.max(0, disponivel / diasRest) : 0;
+  const hAgora = ag.getHours() + ag.getMinutes() / 60;
+  const horasPassadas = Math.max(0.5, Math.min(DIA_FIM, hAgora) - DIA_INI);
+  const ritmo = hAgora > DIA_INI ? gasto / horasPassadas : 0;          // € por hora até agora
+  const resta = orc - gasto;
+  let fim = null;                                                        // hora em que o dinheiro de hoje acaba
+  if (ritmo > 0 && resta > 0) fim = Math.min(24, Math.max(hAgora, DIA_INI) + resta / ritmo);
+  const porCat = {};
+  hoje.forEach(g => porCat[catPai(g.c)] = (porCat[catPai(g.c)] || 0) + g.v);
+  return {temEntradas, orc, gasto, resta, ritmo, fim, hAgora, diasRest, porCat, qtd: hoje.length};
+}
+/** Moeda desenhada para o Seu Centavo (personagem original do app). */
+const SVG_CENTAVO = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#D9A441" stroke="#8A5A12" stroke-width="3"/>'
+  + '<circle cx="32" cy="32" r="22" fill="none" stroke="#8A5A12" stroke-width="1.5" stroke-dasharray="3 3"/>'
+  + '<circle cx="23" cy="27" r="6" fill="#FBF5E3" stroke="#2B2118" stroke-width="2"/><circle cx="41" cy="27" r="6" fill="#FBF5E3" stroke="#2B2118" stroke-width="2"/>'
+  + '<path d="M29 27h6" stroke="#2B2118" stroke-width="2"/><circle cx="23" cy="28" r="2" fill="#2B2118"/><circle cx="41" cy="28" r="2" fill="#2B2118"/>'
+  + '<path d="M20 40c4-3 8-3 12 0 4-3 8-3 12 0" fill="none" stroke="#2B2118" stroke-width="3" stroke-linecap="round"/>'
+  + '<path d="M26 47h12" stroke="#2B2118" stroke-width="2" stroke-linecap="round"/></svg>';
+function relogioDia(){
+  const h = numerosHoje();
+  const c = tema === "centavo";
+  let out = '<section class="relogio">';
+  if (!h.temEntradas){
+    return out + '<div class="rel-topo">'+(c ? '<span class="centavo">'+SVG_CENTAVO+'</span>' : '')+'<div class="txt"><small>Dinheiro de hoje</small>'
+      + '<p class="rel-frase">'+(c ? "“Sem saber quanto entra, não sei quanto você pode gastar. Anote o salário.”" : "Registe o que entra no mês para saber quanto pode gastar por dia.")+'</p></div></div>'
+      + '<button class="btn sec" data-nova-entrada style="margin:12px 0 0;width:100%">Registrar entrada</button></section>';
+  }
+  const frac = h.orc > 0 ? Math.max(0, h.resta) / h.orc : 0;
+  const estado = h.resta < 0 ? "estourou" : frac < 0.25 ? "aviso" : "";
+  const pos = hf => ((Math.min(Math.max(hf, DIA_INI), 24) - DIA_INI) / (24 - DIA_INI) * 100).toFixed(1)+"%";
+  let frase;
+  if (h.resta < 0) frase = c ? "“Estourou "+din(-h.resta)+". Amanhã o orçamento encolhe. É assim que funciona.”" : "Passou "+din(-h.resta)+" do dinheiro de hoje. Os próximos dias ficam com um pouco menos.";
+  else if (!h.gasto) frase = c ? "“Intacto. Assim é que eu gosto.”" : "Ainda intacto: "+din(h.orc)+" para usar até ao fim do dia.";
+  else if (h.fim && h.fim < 24) frase = (c ? "“No seu ritmo, o dinheiro de hoje acaba às " : "No seu ritmo, o dinheiro de hoje acaba às ")+'<b>'+horaTxt(h.fim)+'</b>'+(c ? ". Devagar.”" : ".");
+  else frase = c ? "“Neste ritmo chega ao fim do dia. Não abuse.”" : "Neste ritmo, chega até ao fim do dia.";
+  out += '<div class="rel-topo">'+(c ? '<span class="centavo">'+SVG_CENTAVO+'</span>' : '')
+    + '<div class="txt"><small>'+(c ? "O relógio do Seu Centavo" : "Dinheiro de hoje")+'</small><div class="rel-valor'+(h.resta < 0 ? " neg" : "")+'">'+din(Math.max(0, h.resta))+'</div>'
+    + '<small>de '+din(h.orc)+' para hoje · '+h.diasRest+' dia'+(h.diasRest > 1 ? "s" : "")+' até o fim do mês</small></div>'
+    + '<span class="carimbo '+(h.resta < 0 ? "mal" : estado ? "aviso" : "ok")+'">'+(h.resta < 0 ? "ESTOUROU" : estado ? "NO LIMITE" : h.gasto ? "EM DIA" : "INTACTO")+'</span></div>'
+    + '<div class="rel-barra '+estado+'"><i data-w="'+frac+'"></i></div>'
+    + '<div class="rel-linha">'
+    + [7, 12, 18, 24].map(x => '<span style="left:'+pos(x)+'">'+(x === 24 ? "0h" : x+"h")+'</span>').join("")
+    + '<b style="left:'+pos(h.hAgora)+'" title="agora"></b>' + (h.fim && h.fim < 24 ? '<b class="fim" style="left:'+pos(h.fim)+'" title="acaba"></b>' : '') + '</div>'
+    + '<p class="rel-frase">'+frase+'</p>';
+  const tt = tempoTrabalho(h.gasto);
+  out += '<p class="rel-info">Cada hora acordado vale '+din(h.orc / (24 - DIA_INI))+' do seu dinheiro de hoje'
+    + (h.gasto ? ' · hoje saiu '+din(h.gasto)+(tt ? ', ou '+tt+' do seu trabalho' : '') : '')+'.</p>';
+  if (!valorHora()) out += '<div class="rel-hora"><input id="relHora" inputmode="decimal" placeholder="Quanto vale 1 hora do seu trabalho? (ex.: 7,50)"><button class="btn mini" id="relHoraOk">Guardar</button></div>';
+  const linhas = Object.entries(h.porCat).sort((a, b) => b[1] - a[1]);
+  if (linhas.length) out += '<div class="rel-talao">'+linhas.slice(0, 4).map(([k, v]) => '<div><span>'+cat(k)[0]+' '+esc(k)+'</span><span></span><span>'+din(v)+'</span></div>').join("")
+    + '<div class="tot"><span>Total de hoje</span><span></span><span>'+din(h.gasto)+'</span></div></div>';
+  return out + '</section>';
+}
+/** O que o Seu Centavo diz sobre cada gasto (frases originais do app). */
+function falaCentavo(g){
+  const t = tempoTrabalho(g.v), p = catPai(g.c), sub = catNome(g.c), v = din(g.v);
+  const tt = t ? " São "+t+" do seu trabalho." : "";
+  if (g.t === "r") return "Entrou! Agora não deixe sair tudo de uma vez.";
+  const orc = numerosHoje().orc;
+  if (orc && g.v > orc) return "Isto é mais do que um dia inteiro de orçamento."+tt+" Espero que tenha valido cada minuto.";
+  if (g.cf) return "Conta paga em dia é conta que não cresce. Carimbado.";
+  if (g.v < 2) return "Pequenino. Mas é centavo a centavo que o porquinho enche.";
+  const porSub = {"Padaria":"Um café a "+v+"? Em casa, a cafeteira faz dez por esse preço."+tt, "Restaurante":"Comer fora de novo? A cozinha lá de casa sente a sua falta."+tt,
+    "Supermercado":"Supermercado é investimento. Desde que não venham bolachas a mais.", "Táxi":"Táxi? As pernas vieram de fábrica e são grátis."+tt,
+    "Combustível":"Gasolina, a bebida mais cara da casa.", "Luz":"Luz acesa em quarto vazio é dinheiro a fugir pela janela.", "Água":"Banho de dez minutos, não de novela.",
+    "Guloseimas":"Doce hoje, amargo no fim do mês."+tt, "Bebidas":"Água da torneira também mata a sede. De graça."};
+  if (porSub[sub]) return porSub[sub];
+  const porPai = {"Lazer - Passeios":"Diversão também é conta. Anotei."+tt, "Gastos Pessoais":"Vaidade custa caro."+tt+" Só digo isso.",
+    "Dívidas":"Dívida paga é dívida que não cresce. Bom trabalho.", "Saúde":"Saúde não se discute. Pago com gosto.",
+    "Educação":"Conhecimento é o único gasto que rende juros.", "Pet":"O bicho agradece. A carteira nem tanto.", "Transporte":"Andar custa. Parado também, se o carro estiver na garagem."};
+  return porPai[p] || (v+"? "+(t ? "São "+t+" do seu trabalho. " : "")+"Anotado no caderno.");
+}
+
 function telaFeed(){
   const atual = extr.ano === MES_ATUAL.ano && extr.mes === MES_ATUAL.mes;
   let h = bannerAtualizacao() + seletorModo() + carrossel();
-  h += atual ? heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico();
+  h += atual ? relogioDia() + heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico();
   h += '<div class="controles"><input class="busca" id="busca" placeholder="Buscar por descrição ou categoria" value="'+esc(extr.busca)+'">'
     + '<div class="filtros">'+[["todas","Todas"],["d","Saídas"],["r","Entradas"]].map(([k,n]) => '<button class="chip'+(extr.tipo === k ? " on" : "")+'" data-tipo="'+k+'">'+n+'</button>').join("")
     + '<span style="flex:1"></span>'+[["cartoes","Cartões"],["lista","Lista"]].map(([k,n]) => '<button class="chip'+(vista === k ? " on" : "")+'" data-vista="'+k+'">'+n+'</button>').join("")+'</div>'
@@ -1204,6 +1354,8 @@ function post(g){
     + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(catNome(g.c))+'</button></header>'
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
+    + (!r && tempoTrabalho(g.v) ? '<p class="tempo-trab">⏱ '+tempoTrabalho(g.v)+' do seu trabalho</p>' : '')
+    + (tema === "centavo" ? '<p class="fala-centavo">'+SVG_CENTAVO+'<span>“'+esc(falaCentavo(g))+'”</span></p>' : '')
     + '<footer><button class="acao'+(g.l ? " curtido" : "")+'" data-curtir aria-label="Curtir">'+ICON.coracao+'<span>'+(g.lc || "")+'</span></button>'
     + '<button class="acao" data-comentar aria-label="Comentar">'+ICON.balao+'<span>'+(g.cm.length || "")+'</span></button></footer>'
     + (ult ? '<p class="ultimo-com" data-com="'+esc(g.id+":"+g.cm.length)+'"><b>'+esc(ult.a)+'</b> <span class="tx">'+esc(ult.t)+'</span></p>' : '')
@@ -1348,6 +1500,9 @@ function pagMetricas(){
 function pagExperiencia(){
   const chips = (lista, atual, attr) => '<div class="chips">'+lista.map(([k,n]) => '<button class="chip'+(atual === k ? " on" : "")+'" '+attr+'="'+k+'">'+n+'</button>').join("")+'</div>';
   return '<div class="rotulo">Moeda</div>' + chips([["EUR","€ Euro"],["BRL","R$ Real"]], S.moeda, "data-moeda")
+    + '<div class="rotulo">Tema</div>' + chips([["escuro","Padrão"],["centavo","🪙 Seu Centavo"]], tema, "data-tema")
+    + (tema === "centavo" ? '<div class="rotulo">Fundo do tema</div>' + chips([["papel","Papel"],["kraft","Kraft"],["noite","Noite"]], fundoTema, "data-fundo") : '')
+    + '<p class="nota">Seu Centavo: caderno de contas antigo, com um personagem pão-duro que comenta cada gasto.</p>'
     + '<div class="rotulo">Lista do mês abre em</div>' + chips([["cartoes","Cartões"],["lista","Lista"]], vista, "data-vpad")
     + '<div class="rotulo">Gráfico abre em</div>' + chips(GRAF_ABAS, grafVista, "data-gpad")
     + (temCasal() ? '<div class="rotulo">Ao abrir, mostrar</div>' + chips([["total","Total"],["eu","Só eu"],["nos","Nós"]], lerPref("modo", "total"), "data-mpad") : '')
@@ -1587,7 +1742,7 @@ function ligar(animar){
 function ligarInicio(animar){
   requestAnimationFrame(() => requestAnimationFrame(() => {
     $$(".trilho i[data-f]").forEach(i => i.style.width = (parseFloat(i.dataset.f)*100) + "%");
-    $$(".fluxo i[data-w]").forEach(i => i.style.width = (parseFloat(i.dataset.w)*100) + "%");
+    $$(".fluxo i[data-w], .rel-barra i[data-w]").forEach(i => i.style.width = (parseFloat(i.dataset.w)*100) + "%");
   }));
   const tot = $("[data-contar]");
   if (tot && animar) contar(tot, parseFloat(tot.dataset.contar));
@@ -1629,6 +1784,14 @@ function ligarResto(){
   ligarCategorias();
   $$("[data-vpad]").forEach(b => b.onclick = () => { vista = b.dataset.vpad; gravarPref("vista", vista); render(false); });
   $$("[data-gpad]").forEach(b => b.onclick = () => { grafVista = b.dataset.gpad; gravarPref("graf", grafVista); render(false); });
+  $$("[data-fundo]").forEach(b => b.onclick = () => { fundoTema = b.dataset.fundo; gravarPref("fundoTema", fundoTema); aplicarTema(); vibrar(); render(false); });
+  $$("[data-tema]").forEach(b => b.onclick = () => { tema = b.dataset.tema; gravarPref("tema", tema); aplicarTema(); vibrar(); render(false); });
+  const rh = $("#relHoraOk"); if (rh) rh.onclick = () => {
+    const v = $("#relHora").value;
+    const r = aplicar(ponte.salvarReferencia("", "Hora de trabalho", "⏱", v, false, false, ""));
+    if (!r.ok){ aviso("Escreva quanto vale uma hora, ex.: 7,50"); return; }
+    vibrar(); render(false); aviso("Guardado: agora cada gasto mostra o tempo de trabalho");
+  };
   $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
   $$("[data-nova-entrada]").forEach(b => b.onclick = () => folhaNovo(true));
 
