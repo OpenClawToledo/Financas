@@ -12,23 +12,24 @@
   --serif:"Noto Serif","Roboto Serif",Georgia,serif;
   --sans:Roboto,"Google Sans",system-ui,sans-serif;
 }
-/* Tema opcional "Seu Centavo": caderno de contas antigo (papel, tinta, carimbos) */
-body.tema-centavo{
-  --ink:#EDE2C4; --surface:#FBF5E3; --surface2:#E6D8B4; --line:#C9B68C;
-  --text:#2B2118; --muted:#76664F; --mango:#B9791F; --heart:#B3261E; --violet:#34458A; --ok:#2E7D4F; --late:#B3261E;
-  --marca:#2F6B4E; --marca-tx:#FBF5E3; --nav:rgba(237,226,196,.96);
-  --serif:"Courier Prime","Courier New",Courier,monospace;
-  background:repeating-linear-gradient(transparent 0 27px, rgba(120,90,50,.09) 27px 28px), var(--ink);
+/* Tema opcional "Nota": visual de cédula (guilloché, moldura dupla, numeral serifado). Cores gerais, sem copiar nenhuma nota real. */
+body.tema-nota{
+  --ink:#DCEBD3; --surface:#EEF6E6; --surface2:#CBDFC0; --line:#6E9A72;
+  --text:#14301F; --muted:#4E6B55; --mango:#9A6B0E; --heart:#B3261E; --violet:#2F4B8A; --ok:#1F7A4A; --late:#B3261E;
+  --marca:#1F6B47; --marca-tx:#F2F8EC; --nav:rgba(220,235,211,.97);
+  --serif:"Noto Serif","Roboto Serif",Georgia,serif; --guil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cg fill='none' stroke='%236E9A72' stroke-width='.7' stroke-opacity='.4'%3E%3Ccircle cx='36' cy='36' r='34'/%3E%3Ccircle cx='36' cy='36' r='27'/%3E%3Ccircle cx='36' cy='36' r='20'/%3E%3Ccircle cx='36' cy='36' r='13'/%3E%3Ccircle cx='0' cy='0' r='34'/%3E%3Ccircle cx='72' cy='0' r='34'/%3E%3Ccircle cx='0' cy='72' r='34'/%3E%3Ccircle cx='72' cy='72' r='34'/%3E%3Cpath d='M0 36h72M36 0v72' stroke-dasharray='2 4'/%3E%3C/g%3E%3C/svg%3E");
+  background:var(--guil), radial-gradient(120% 60% at 50% 0, rgba(255,255,255,.55), transparent 70%), var(--ink);
 }
-body.tema-centavo.fundo-kraft{--ink:#CDB083; --surface:#E2CDA2; --surface2:#BFA06E; --line:#8C7048; --muted:#5B4A33; --nav:rgba(205,176,131,.97)}
-body.tema-centavo.fundo-noite{--ink:#1C1712; --surface:#2A231A; --surface2:#3A3024; --line:#5A4A35; --text:#F1E6CC; --muted:#B5A482; --mango:#E0A23A; --heart:#F0716A; --violet:#9FB0F0; --ok:#6CCB92; --late:#F0716A; --marca:#E0A23A; --marca-tx:#1C1712; --nav:rgba(28,23,18,.97)}
-body.tema-centavo.fundo-noite{background:repeating-linear-gradient(transparent 0 27px, rgba(255,230,180,.05) 27px 28px), var(--ink)}
-body.tema-centavo .topo{background:linear-gradient(var(--ink) 75%,transparent)}
-body.tema-centavo nav{background:var(--nav);border-top:1px dashed var(--line)}
-body.tema-centavo .post .corpo, body.tema-centavo .heroi, body.tema-centavo .graf, body.tema-centavo .relogio, body.tema-centavo .menu-grupo{border:1px dashed var(--line);box-shadow:0 2px 0 rgba(120,90,50,.08)}
-body.tema-centavo .valor, body.tema-centavo .big, body.tema-centavo .med{font-family:var(--serif);letter-spacing:-.02em}
-body.tema-centavo .heroi::after{background:radial-gradient(circle,rgba(185,121,31,.18),transparent 70%)}
-body.tema-centavo .veu{background:rgba(43,33,24,.45)}
+body.tema-nota.fundo-azul{--ink:#D5E4F0; --surface:#EAF2F9; --surface2:#BFD3E6; --line:#6A8FB5; --text:#10263D; --muted:#496680; --marca:#27578F; --marca-tx:#EEF5FB; --mango:#8F6A12; --nav:rgba(213,228,240,.97); --guil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cg fill='none' stroke='%236A8FB5' stroke-width='.7' stroke-opacity='.4'%3E%3Ccircle cx='36' cy='36' r='34'/%3E%3Ccircle cx='36' cy='36' r='27'/%3E%3Ccircle cx='36' cy='36' r='20'/%3E%3Ccircle cx='36' cy='36' r='13'/%3E%3Ccircle cx='0' cy='0' r='34'/%3E%3Ccircle cx='72' cy='0' r='34'/%3E%3Ccircle cx='0' cy='72' r='34'/%3E%3Ccircle cx='72' cy='72' r='34'/%3E%3Cpath d='M0 36h72M36 0v72' stroke-dasharray='2 4'/%3E%3C/g%3E%3C/svg%3E")}
+body.tema-nota.fundo-ouro{--ink:#EBDDB4; --surface:#F6EDCF; --surface2:#DCC98F; --line:#A58B45; --text:#2E2410; --muted:#6F5E33; --marca:#7A5A12; --marca-tx:#FBF3D9; --mango:#8A5A00; --nav:rgba(235,221,180,.97); --guil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cg fill='none' stroke='%23A58B45' stroke-width='.7' stroke-opacity='.4'%3E%3Ccircle cx='36' cy='36' r='34'/%3E%3Ccircle cx='36' cy='36' r='27'/%3E%3Ccircle cx='36' cy='36' r='20'/%3E%3Ccircle cx='36' cy='36' r='13'/%3E%3Ccircle cx='0' cy='0' r='34'/%3E%3Ccircle cx='72' cy='0' r='34'/%3E%3Ccircle cx='0' cy='72' r='34'/%3E%3Ccircle cx='72' cy='72' r='34'/%3E%3Cpath d='M0 36h72M36 0v72' stroke-dasharray='2 4'/%3E%3C/g%3E%3C/svg%3E")}
+body.tema-nota.fundo-noite{--ink:#0F2218; --surface:#16301F; --surface2:#1F3D2A; --line:#3E7152; --text:#E8F3E1; --muted:#9DBBA6; --mango:#E7C25A; --heart:#F0716A; --violet:#9FB0F0; --ok:#6CD39A; --late:#F0716A; --marca:#E7C25A; --marca-tx:#10241A; --nav:rgba(15,34,24,.97); --guil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cg fill='none' stroke='%233E7152' stroke-width='.7' stroke-opacity='.4'%3E%3Ccircle cx='36' cy='36' r='34'/%3E%3Ccircle cx='36' cy='36' r='27'/%3E%3Ccircle cx='36' cy='36' r='20'/%3E%3Ccircle cx='36' cy='36' r='13'/%3E%3Ccircle cx='0' cy='0' r='34'/%3E%3Ccircle cx='72' cy='0' r='34'/%3E%3Ccircle cx='0' cy='72' r='34'/%3E%3Ccircle cx='72' cy='72' r='34'/%3E%3Cpath d='M0 36h72M36 0v72' stroke-dasharray='2 4'/%3E%3C/g%3E%3C/svg%3E")}
+body.tema-nota .topo{background:linear-gradient(var(--ink) 75%,transparent)}
+body.tema-nota nav{background:var(--nav);border-top:2px double var(--line)}
+body.tema-nota .post .corpo, body.tema-nota .heroi, body.tema-nota .graf, body.tema-nota .relogio, body.tema-nota .menu-grupo{border:1px solid var(--line);box-shadow:inset 0 0 0 3px var(--surface), inset 0 0 0 4px var(--line)}
+body.tema-nota .valor, body.tema-nota .big, body.tema-nota .med{font-family:var(--serif);letter-spacing:-.02em;font-variant-numeric:lining-nums}
+body.tema-nota .heroi::after{background:radial-gradient(circle,rgba(31,107,71,.16),transparent 70%)}
+body.tema-nota .veu{background:rgba(10,30,18,.45)}
+body.tema-nota .topo h1{font-family:"Arial Rounded MT Bold","Trebuchet MS",Roboto,system-ui,sans-serif;font-weight:900;font-style:italic;letter-spacing:.02em;color:#F7E27A;-webkit-text-stroke:2.5px #123221;paint-order:stroke fill;text-shadow:2px 3px 0 #123221;transform:rotate(-2deg);transform-origin:left center;display:inline-block}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.4;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
@@ -64,9 +65,9 @@ main{padding:0 0 110px}
 .rel-hora input{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--ink)}
 .carimbo{display:inline-block;padding:3px 8px;border:2px solid currentColor;border-radius:6px;font-family:var(--serif);font-weight:700;font-size:.72rem;letter-spacing:.08em;transform:rotate(-6deg);opacity:.85}
 .carimbo.ok{color:var(--ok)} .carimbo.aviso{color:var(--mango)} .carimbo.mal{color:var(--late)}
-.centavo{flex:none;width:52px;height:52px}
-.fala-centavo{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-size:.86rem;color:var(--muted);font-style:italic}
-.fala-centavo svg{flex:none;width:22px;height:22px}
+.selo{flex:none;width:52px;height:52px}
+.fala-selo{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-size:.86rem;color:var(--muted);font-style:italic}
+.fala-selo svg{flex:none;width:22px;height:22px}
 .tempo-trab{margin:4px 0 0;font-size:.82rem;color:var(--muted)}
 
 /* ---------- Gráfico do mês (3 visões) ---------- */
@@ -1543,12 +1544,13 @@ setInterval(tickGrafico, 20000);
 /* ================= Dinheiro de hoje: quanto posso gastar e quanto tempo dura ================= */
 const DIA_INI = 7, DIA_FIM = 23;   // horas acordado
 let tema = lerPrefTema();
-function lerPrefTema(){ try { return localStorage.getItem("fin.tema") || "escuro"; } catch(e){ return "escuro"; } }
-let fundoTema = (() => { try { return localStorage.getItem("fin.fundoTema") || "papel"; } catch(e){ return "papel"; } })();
+function lerPrefTema(){ try { const t = localStorage.getItem("fin.tema") || "escuro"; return t === "centavo" ? "nota" : t; } catch(e){ return "escuro"; } }
+let fundoTema = (() => { try { const f = localStorage.getItem("fin.fundoTema") || "verde"; return {papel:"verde", kraft:"ouro"}[f] || f; } catch(e){ return "verde"; } })();
 function aplicarTema(){
   const b = document.body;
-  b.classList.toggle("tema-centavo", tema === "centavo");
-  b.classList.toggle("fundo-kraft", fundoTema === "kraft");
+  b.classList.toggle("tema-nota", tema === "nota");
+  b.classList.toggle("fundo-azul", fundoTema === "azul");
+  b.classList.toggle("fundo-ouro", fundoTema === "ouro");
   b.classList.toggle("fundo-noite", fundoTema === "noite");
 }
 const valorHora = () => { const r = (S.refs || []).find(x => /hora/i.test(x.n) && x.v > 0); return r ? r.v : 0; };
@@ -1581,19 +1583,16 @@ function numerosHoje(){
   hoje.forEach(g => porCat[catPai(g.c)] = (porCat[catPai(g.c)] || 0) + g.v);
   return {temEntradas, orc, gasto, resta, ritmo, fim, hAgora, diasRest, porCat, qtd: hoje.length};
 }
-/** Moeda desenhada para o Seu Centavo (personagem original do app). */
-const SVG_CENTAVO = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#D9A441" stroke="#8A5A12" stroke-width="3"/>'
-  + '<circle cx="32" cy="32" r="22" fill="none" stroke="#8A5A12" stroke-width="1.5" stroke-dasharray="3 3"/>'
-  + '<circle cx="23" cy="27" r="6" fill="#FBF5E3" stroke="#2B2118" stroke-width="2"/><circle cx="41" cy="27" r="6" fill="#FBF5E3" stroke="#2B2118" stroke-width="2"/>'
-  + '<path d="M29 27h6" stroke="#2B2118" stroke-width="2"/><circle cx="23" cy="28" r="2" fill="#2B2118"/><circle cx="41" cy="28" r="2" fill="#2B2118"/>'
-  + '<path d="M20 40c4-3 8-3 12 0 4-3 8-3 12 0" fill="none" stroke="#2B2118" stroke-width="3" stroke-linecap="round"/>'
-  + '<path d="M26 47h12" stroke="#2B2118" stroke-width="2" stroke-linecap="round"/></svg>';
+/** Selo com cifrão (ornamento do tema Nota; sem personagem). */
+const SVG_SELO = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#1F6B47" stroke="#E7C25A" stroke-width="3"/>'
+  + '<circle cx="32" cy="32" r="23" fill="none" stroke="#E7C25A" stroke-width="1.2" stroke-dasharray="2 3"/>'
+  + '<path d="M40 22c0-4-5-6-8-6s-8 2-8 6c0 5 6 6 8 7s8 2 8 7c0 4-5 7-8 7s-8-3-8-7M32 11v42" fill="none" stroke="#F7E27A" stroke-width="4" stroke-linecap="round"/></svg>';
 function relogioDia(){
   const h = numerosHoje();
-  const c = tema === "centavo";
+  const c = tema === "nota";
   let out = '<section class="relogio">';
   if (!h.temEntradas){
-    return out + '<div class="rel-topo">'+(c ? '<span class="centavo">'+SVG_CENTAVO+'</span>' : '')+L('<div class="txt"><small>Dinheiro de hoje</small>')
+    return out + '<div class="rel-topo">'+(c ? '<span class="selo">'+SVG_SELO+'</span>' : '')+L('<div class="txt"><small>Dinheiro de hoje</small>')
       + '<p class="rel-frase">'+(c ? L("“Sem saber quanto entra, não sei quanto você pode gastar. Anote o salário.”") : L("Registe o que entra no mês para saber quanto pode gastar por dia."))+'</p></div></div>'
       + L('<button class="btn sec" data-nova-entrada style="margin:12px 0 0;width:100%">Registrar entrada</button></section>');
   }
@@ -1605,8 +1604,8 @@ function relogioDia(){
   else if (!h.gasto) frase = c ? L("“Intacto. Assim é que eu gosto.”") : L("Ainda intacto: ")+din(h.orc)+L(" para usar até ao fim do dia.");
   else if (h.fim && h.fim < 24) frase = (c ? L("“No seu ritmo, o dinheiro de hoje acaba às ") : L("No seu ritmo, o dinheiro de hoje acaba às "))+'<b>'+horaTxt(h.fim)+'</b>'+(c ? L(". Devagar.”") : ".");
   else frase = c ? L("“Neste ritmo chega ao fim do dia. Não abuse.”") : L("Neste ritmo, chega até ao fim do dia.");
-  out += '<div class="rel-topo">'+(c ? '<span class="centavo">'+SVG_CENTAVO+'</span>' : '')
-    + '<div class="txt"><small>'+(c ? L("O relógio do Seu Centavo") : L("Dinheiro de hoje"))+'</small><div class="rel-valor'+(h.resta < 0 ? " neg" : "")+'">'+din(Math.max(0, h.resta))+'</div>'
+  out += '<div class="rel-topo">'+(c ? '<span class="selo">'+SVG_SELO+'</span>' : '')
+    + '<div class="txt"><small>'+(c ? L("O relógio da nota") : L("Dinheiro de hoje"))+'</small><div class="rel-valor'+(h.resta < 0 ? " neg" : "")+'">'+din(Math.max(0, h.resta))+'</div>'
     + '<small>'+LE('de ','of ')+din(h.orc)+L(' para hoje · ')+h.diasRest+LE(' dia',' day')+(h.diasRest > 1 ? "s" : "")+L(' até o fim do mês</small></div>')
     + '<span class="carimbo '+(h.resta < 0 ? "mal" : estado ? "aviso" : "ok")+'">'+(h.resta < 0 ? L("ESTOUROU") : estado ? L("NO LIMITE") : h.gasto ? L("EM DIA") : L("INTACTO"))+'</span></div>'
     + '<div class="rel-barra '+estado+'"><i data-w="'+frac+'"></i></div>'
@@ -1623,15 +1622,15 @@ function relogioDia(){
     + L('<div class="tot"><span>Total de hoje</span><span></span><span>')+din(h.gasto)+'</span></div></div>';
   return out + '</section>';
 }
-/** O que o Seu Centavo diz sobre cada gasto (frases originais do app). */
-function falaCentavo(g){
+/** O que o selo da nota comenta sobre cada gasto (frases originais do app). */
+function falaNota(g){
   const t = tempoTrabalho(g.v), p = catPai(g.c), sub = catNome(g.c), v = din(g.v);
   const tt = t ? L(" São ")+t+L(" do seu trabalho.") : "";
   if (g.t === "r") return L("Entrou! Agora não deixe sair tudo de uma vez.");
   const orc = numerosHoje().orc;
   if (orc && g.v > orc) return L("Isto é mais do que um dia inteiro de orçamento.")+tt+L(" Espero que tenha valido cada minuto.");
   if (g.cf) return L("Conta paga em dia é conta que não cresce. Carimbado.");
-  if (g.v < 2) return L("Pequenino. Mas é centavo a centavo que o porquinho enche.");
+  if (g.v < 2) return L("Pequenino. Mas é centavo a centavo que a pilha cresce.");
   const porSub = {"Padaria":L("Um café a ")+v+L("? Em casa, a cafeteira faz dez por esse preço.")+tt, "Restaurante":L("Comer fora de novo? A cozinha lá de casa sente a sua falta.")+tt,
     "Supermercado":L("Supermercado é investimento. Desde que não venham bolachas a mais."), "Táxi":L("Táxi? As pernas vieram de fábrica e são grátis.")+tt,
     "Combustível":L("Gasolina, a bebida mais cara da casa."), "Luz":L("Luz acesa em quarto vazio é dinheiro a fugir pela janela."), "Água":L("Banho de dez minutos, não de novela."),
@@ -1667,7 +1666,7 @@ function post(g){
     + (g.ca && carteiraDe(g.ca) ? '<p class="cart-tag">'+esc(carteiraDe(g.ca).e)+' '+esc(carteiraDe(g.ca).n)+'</p>' : '')
     + (r && g.dv && g.dm ? '<p class="cart-tag">🎯 '+din(g.dv)+' '+destinoTexto(g.dm)+'</p>' : '')
     + (r && g.rv ? '<p class="cart-tag">🔒 '+din(g.rv)+' reservado</p>' : '')
-    + (tema === "centavo" ? '<p class="fala-centavo">'+SVG_CENTAVO+'<span>“'+esc(falaCentavo(g))+'”</span></p>' : '')
+    + (tema === "nota" ? '<p class="fala-selo">'+SVG_SELO+'<span>“'+esc(falaNota(g))+'”</span></p>' : '')
     + '<footer><button class="acao'+(g.l ? " curtido" : "")+L('" data-curtir aria-label="Curtir">')+ICON.coracao+'<span>'+(g.lc || "")+'</span></button>'
     + '<button class="acao" data-comentar aria-label="Comentar">'+ICON.balao+'<span>'+(g.cm.length || "")+'</span></button></footer>'
     + (ult ? '<p class="ultimo-com" data-com="'+esc(g.id+":"+g.cm.length)+'"><b>'+esc(ult.a)+'</b> <span class="tx">'+esc(ult.t)+'</span></p>' : '')
@@ -1813,9 +1812,9 @@ function pagExperiencia(){
   const chips = (lista, atual, attr) => '<div class="chips">'+lista.map(([k,n]) => '<button class="chip'+(atual === k ? " on" : "")+'" '+attr+'="'+k+'">'+n+'</button>').join("")+'</div>';
   return '<div class="rotulo">Idioma · Language</div>' + chips([["pt","Português"],["en","English"]], LANG, "data-lang")
     + L('<div class="rotulo">Moeda</div>') + chips([["EUR","€ Euro"],["BRL","R$ Real"]], S.moeda, "data-moeda")
-    + L('<div class="rotulo">Tema</div>') + chips([["escuro",L("Padrão")],["centavo","🪙 Seu Centavo"]], tema, "data-tema")
-    + (tema === "centavo" ? L('<div class="rotulo">Fundo do tema</div>') + chips([["papel",L("Papel")],["kraft","Kraft"],["noite",L("Noite")]], fundoTema, "data-fundo") : '')
-    + L('<p class="nota">Seu Centavo: caderno de contas antigo, com um personagem pão-duro que comenta cada gasto.</p>')
+    + L('<div class="rotulo">Tema</div>') + chips([["escuro",L("Padrão")],["nota",L("💵 Nota de dinheiro")]], tema, "data-tema")
+    + (tema === "nota" ? L('<div class="rotulo">Fundo do tema</div>') + chips([["verde",L("Verde")],["azul",L("Azul")],["ouro",L("Ouro")],["noite",L("Noite")]], fundoTema, "data-fundo") : '')
+    + L('<p class="nota">Nota de dinheiro: visual de cédula com selo de cifrão e comentários sobre cada gasto.</p>')
     + L('<div class="rotulo">Lista do mês abre em</div>') + chips([["cartoes",L("Cartões")],["lista",L("Lista")]], vista, "data-vpad")
     + L('<div class="rotulo">Gráfico abre em</div>') + chips(GRAF_ABAS, grafVista, "data-gpad")
     + (temCasal() ? L('<div class="rotulo">Ao abrir, mostrar</div>') + chips([["total","Total"],["eu",L("Só eu")],["nos",L("Nós")]], lerPref("modo", "total"), "data-mpad") : '')
