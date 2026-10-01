@@ -91,6 +91,9 @@ object Estado {
             .put("gastos", lancs)
             .put("contas", contas)
             .put("metas", metas)
+            .put("aportes", JSONArray().also { a -> Armazem.aportes(ctx).forEach { r ->
+                a.put(JSONObject().put("id", r.id).put("meta", r.dados.optString("meta")).put("v", r.dados.optDouble("v", 0.0)).put("q", r.dados.optLong("q"))
+                    .put("dono", r.dono).put("troca", r.dados.optString("troca")).put("lanc", r.dados.optString("lanc"))) } })
             .put("carteiras", JSONArray().also { a -> Armazem.carteiras(ctx).forEach { c ->
                 a.put(JSONObject().put("id", c.id).put("n", c.nome).put("e", c.emoji).put("t", c.tipo).put("si", c.inicial).put("sh", c.sh).put("dono", c.dono)) } })
             .put("refs", refs)

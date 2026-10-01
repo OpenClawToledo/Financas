@@ -393,6 +393,8 @@ object Armazem {
         }
     }
 
+    fun aportes(ctx: Context): List<Reg> = b(ctx).todos("aporte")
+
     fun adicionarMeta(ctx: Context, nome: String, alvo: Double, emoji: String, tipo: String, sh: Boolean) {
         novo(ctx, "meta", sh, JSONObject().put("n", nome).put("alvo", alvo).put("e", emoji).put("tipo", if (tipo == "a") "a" else "j"))
     }
@@ -486,7 +488,11 @@ object Previsao {
         // em caixa = tudo o que entrou menos tudo o que saiu, desde o primeiro lançamento
         val emCaixa = todos.sumOf { if (it.receita) it.v else -it.v }
         val saiuHoje = todos.filter { !it.receita && it.q >= iniDia }.sumOf { it.v }
-        return Resultado(jaGasto, receitas, receitas - jaGasto, emCaixa, saiuHoje)
+        // o que já tem destino (aportes em planos, trocas e reservas) não está mais livre
+        val aportes = Armazem.aportes(ctx).filter { it.dono == Sessao.eu(ctx) && it.dados.optLong("q") <= agora }
+        val guardadoTudo = aportes.sumOf { it.dados.optDouble("v", 0.0) } + todos.filter { it.receita }.sumOf { it.rv }
+        val guardadoMes = aportes.filter { it.dados.optLong("q") >= iniMes }.sumOf { it.dados.optDouble("v", 0.0) } + todos.filter { it.receita && it.q >= iniMes }.sumOf { it.rv }
+        return Resultado(jaGasto, receitas, receitas - jaGasto - guardadoMes, emCaixa - guardadoTudo, saiuHoje)
     }
 
     /** Contas a pagar ainda em aberto neste mês, com dias até o vencimento (negativo = atrasada). */

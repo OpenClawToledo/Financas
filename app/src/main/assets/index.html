@@ -700,6 +700,15 @@ function equivTexto(v, excluir){
 }
 
 /* ---------- Números do mês (na visão escolhida) ---------- */
+/* Dinheiro que já tem destino: aportes em planos/metas (inclui trocas e entradas destinadas) e reservas. Sai do “livre”. */
+function aportesVis(){
+  return (S.aportes || []).filter(a => {
+    const m = S.metasVis.find(x => x.id === a.meta); if (!m) return false;
+    return modo === "total" || (modo === "eu" ? a.dono === S.eu.id : !!m.sh);
+  });
+}
+function guardadoMes(a, m){ return aportesVis().filter(x => noMes(x.q, a, m)).reduce((s, x) => s + x.v, 0); }
+function separadoMes(a, m){ return guardadoMes(a, m) + S.rec.filter(g => noMes(g.q, a, m)).reduce((s, g) => s + (g.rv || 0), 0); }
 function numerosMes(){
   const {ano, mes} = MES_ATUAL;
   const desp = S.desp.filter(g => noMes(g.q, ano, mes));
@@ -715,7 +724,7 @@ function numerosMes(){
   const compFuturo = S.contasVis.filter(c => !c.e && c.vezes > 0).reduce((a,c) => a + restantesDepois(c) * c.v, 0);
   const comprometido = compMes + compFuturo;
   const aReceber = S.contasMes.filter(c => c.e).reduce((a,c) => a + (c.ocs || []).filter(o => !o.paga).length*c.v, 0);
-  const sep = S.rec.filter(g => noMes(g.q, ano, mes)).reduce((a,g) => a + (g.rv || 0) + (g.dv || 0), 0);   // separado em metas ou reserva
+  const sep = separadoMes(ano, mes);   // guardado em planos (aportes e trocas) e reservado nas entradas
   const livre = entrou - saiu - sep;
   const ant = new Date(ano, mes-1, 1);
   const limiteAnt = new Date(ant.getFullYear(), ant.getMonth(), Math.min(S.hoje, new Date(ano, mes, 0).getDate()) + 1).getTime();
@@ -1030,7 +1039,8 @@ function heroiAtual(){
       + (n.aReceber > 0 ? '<small class="pos">+'+din(n.aReceber)+' a receber</small>' : '')+'</div></div>';
     const tot = Math.max(n.entrou, n.saiu, 1);
     h += '<div class="fluxo"><i class="e" data-w="'+(n.entrou/tot/2)+'"></i><i class="s" data-w="'+(n.saiu/tot/2)+'"></i></div>'
-      + '<div class="legenda"><span>Entrou '+din(n.entrou)+'</span><span>Saiu '+din(n.saiu)+'</span></div>'
+      + '<div class="legenda"><span>Entrou '+din(n.entrou)+'</span><span>Saiu '+din(n.saiu)+'</span>'+(n.sep ? '<span>Guardado '+din(n.sep)+'</span>' : '')+'</div>'
+      + (n.sep ? '<div class="linha-info">Livre já desconta <b>'+din(n.sep)+'</b> guardados em planos, trocas e reservas.</div>' : '')
       + '<div class="linha-info">No fim do mês deve '+(n.sobra >= 0 ? 'sobrar' : 'faltar')+' <b class="'+(n.sobra < 0 ? "neg" : "")+'">'+din(Math.abs(n.sobra))+'</b></div>';
   } else {
     h += '<div class="big" data-contar="'+n.saiu+'">'+din(n.saiu)+'</div>' + equivalencia(n.saiu)
@@ -1439,7 +1449,7 @@ function graficoLinha(){
   }
   const perto = (a, b) => Math.abs(zoomLin.a - a) < .004 && Math.abs(zoomLin.b - b) < .004;
   const zb = (k, t, on) => '<button data-z="'+k+'" class="'+(on ? "on" : "")+'">'+t+'</button>';
-  const comp = C + aPagar, tt = tempoTrabalho(comp), sep = S.rec.filter(g => noMes(g.q, ano, mes)).reduce((a,g) => a + (g.rv || 0) + (g.dv || 0), 0);
+  const comp = C + aPagar, tt = tempoTrabalho(comp), sep = separadoMes(ano, mes);
   const ler = 'Ganhei <b class="pos">'+din(G)+'</b>'+(aReceber ? ' <small>(+'+din(aReceber)+' a receber)</small>' : '')
     + ' · Comprometi <b class="neg">'+din(comp)+'</b> <small>(saiu '+din(C)+(aPagar ? ' + '+din(aPagar)+' pendente' : '')+')</small>'
     + '<br>Sobra <b class="'+(G + aReceber - comp < 0 ? "neg" : "pos")+'">'+sdin(G + aReceber - comp)+'</b>'
