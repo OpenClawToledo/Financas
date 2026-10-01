@@ -1108,7 +1108,9 @@ function cartoesMes(){
   const prev = projetadas(ano, mes).filter(passaFiltro).sort((a,b) => a.q - b.q);
   const fut = S.fut.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).sort((a,b) => a.q - b.q);
   const somaP = t => prev.concat(fut).filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
-  let h = prev.length || fut.length ? '<div class="dia">Pendentes'+(somaP(true) ? ' · a receber '+din(somaP(true)) : '')+(somaP(false) ? ' · a pagar '+din(somaP(false)) : '')+'</div>' + prev.map(linhaExtrato).join("") + fut.map(post).join("") : "";
+  const todosP = prev.concat(fut), recP = todosP.filter(x => x.t === "r"), pagP = todosP.filter(x => x.t !== "r");
+  const bloco = (lista, titulo) => lista.length ? '<div class="dia">'+titulo+' · '+din(lista.reduce((a,x) => a + x.v, 0))+'</div>' + lista.map(x => x.prev ? linhaExtrato(x) : post(x)).join("") : "";
+  let h = bloco(recP, "Pendente a receber") + bloco(pagP, "Comprometido a pagar");
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
   // trocas não entram no feed nem nos totais: só aparecem na barra do destino
   const itens = S.vis.filter(g => g.q <= Date.now() && noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
@@ -1451,10 +1453,10 @@ function graficoLinha(){
   const zb = (k, t, on) => '<button data-z="'+k+'" class="'+(on ? "on" : "")+'">'+t+'</button>';
   const comp = C + aPagar, tt = tempoTrabalho(comp), sep = separadoMes(ano, mes);
   const ler = 'Ganhei <b class="pos">'+din(G)+'</b>'+(aReceber ? ' <small>(+'+din(aReceber)+' a receber)</small>' : '')
-    + ' · Comprometi <b class="neg">'+din(comp)+'</b> <small>(saiu '+din(C)+(aPagar ? ' + '+din(aPagar)+' pendente' : '')+')</small>'
+    + ' · Comprometi <b class="neg">'+din(comp)+'</b> <small>(saiu '+din(C)+(aPagar ? ' + '+din(aPagar)+' a pagar' : '')+')</small>'
     + '<br>Sobra <b class="'+(G + aReceber - comp < 0 ? "neg" : "pos")+'">'+sdin(G + aReceber - comp)+'</b>'
     + (tt ? ' · comprometeu <b>'+tt+'</b> do seu trabalho' : '') + (sep ? ' · separado em metas/reserva: '+din(sep) : '');
-  const leg = '<div class="graf-leg"><span><i style="background:var(--ok)"></i>Ganhei</span><span><i style="background:var(--late)"></i>Comprometi</span><span><i class="trac"></i>Pendente</span></div>'
+  const leg = '<div class="graf-leg"><span><i style="background:var(--ok)"></i>Ganhei</span><span><i style="background:var(--late)"></i>Comprometi</span><span><i class="trac"></i>A receber / a pagar</span></div>'
     + '<div class="graf-zoom">'+zb("-", "−", false)+zb("+", "+", false)+zb("mes", "Mês", !zoomado)+zb("sem", "7 dias", false)+zb("hoje", "Hoje", false)+'<small>'+(zoomado ? "arraste para andar" : "pinça para aproximar")+'</small></div>';
   return {svg: '<svg id="svgLin" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Ganhei e comprometi ao longo do mês">'+h+'</svg>'+leg, dados, ler};
 }
@@ -1652,7 +1654,7 @@ function post(g){
   const r = g.t === "r";
   const ult = g.cm.length ? g.cm[g.cm.length-1] : null;
   return '<article class="post" data-id="'+g.id+'"'+(meu(g) ? '' : ' data-alheio="1"')+'><div class="fundo-apagar">Apagar</div><div class="corpo">'
-    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+(g.q > Date.now() ? '<span class="rep-tag pend-tag">⏳ '+(g.t === "r" ? "pendente a receber" : "pendente a pagar")+'</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
+    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+(g.q > Date.now() ? '<span class="rep-tag pend-tag">⏳ '+(g.t === "r" ? "pendente a receber" : "a pagar")+'</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
     + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(catNome(g.c))+'</button></header>'
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
