@@ -40,13 +40,13 @@ object Notificacao {
 
     /** Ação com campo de texto. Um "+" no começo registra uma entrada de dinheiro. */
     private fun acaoTexto(ctx: Context, popup: Boolean): Notification.Action {
-        val entrada = RemoteInput.Builder(CHAVE_TEXTO).setLabel("5,50 café  ·  +1090 salário").build()
+        val entrada = RemoteInput.Builder(CHAVE_TEXTO).setLabel(if (Formato.en) "5.50 coffee  ·  +1090 salary" else "5,50 café  ·  +1090 salário").build()
         val intent = Intent(ctx, ReceptorGasto::class.java).setAction(ACAO_ADICIONAR).putExtra(EXTRA_POPUP, popup)
         val pi = PendingIntent.getBroadcast(
             ctx, if (popup) 11 else 1, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
-        return Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_add), "Lançar", pi)
+        return Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_add), if (Formato.en) "Log" else "Lançar", pi)
             .addRemoteInput(entrada).setAllowGeneratedReplies(false).build()
     }
 
@@ -55,7 +55,7 @@ object Notificacao {
         val i = Intent(ctx, LancamentoRapidoActivity::class.java).putExtra("voz", true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         val pi = PendingIntent.getActivity(ctx, if (popup) 14 else 4, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_mic), "Falar", pi).build()
+        return Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_mic), if (Formato.en) "Speak" else "Falar", pi).build()
     }
 
     /** Botões "Evitei …" para as referências marcadas como algo a evitar. */
@@ -82,7 +82,7 @@ object Notificacao {
     fun construir(ctx: Context, mensagem: String? = null): Notification {
         criarCanais(ctx)
         val p = Previsao.doMes(ctx)
-        val titulo = "Em caixa ${Formato.moeda(p.emCaixa)} · Hoje saiu ${Formato.moeda(p.saiuHoje)}"
+        val titulo = if (Formato.en) "Cash ${Formato.moeda(p.emCaixa)} · Spent today ${Formato.moeda(p.saiuHoje)}" else "Em caixa ${Formato.moeda(p.emCaixa)} · Hoje saiu ${Formato.moeda(p.saiuHoje)}"
 
         val equiv = Formato.equivalencia(ctx, p.jaGasto)
         // o que antes estava no título continua na notificação

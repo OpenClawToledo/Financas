@@ -185,6 +185,7 @@ class Ponte(private val host: Hospedeiro, contexto: Context) {
         }
     }
 
+    @JavascriptInterface fun definirIdioma(l: String) { Ajustes.salvarIdioma(ctx, l) }
     @JavascriptInterface fun estado(): String = Estado.json(ctx).toString()
 
     // ---------- Lançamentos ----------

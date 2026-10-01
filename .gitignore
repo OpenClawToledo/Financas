@@ -4,3 +4,4 @@ app/build/
 local.properties
 *.iml
 .idea/
+tools/i18n/node_modules

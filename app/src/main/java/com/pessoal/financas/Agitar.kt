@@ -20,6 +20,7 @@ class AppFinancas : Application() {
     override fun onCreate() {
         super.onCreate()
         Formato.codigo = Ajustes.moeda(this)
+        Formato.en = Ajustes.idioma(this) == "en"
         Categorias.carregar(assets.open("categorias.json").bufferedReader().use { it.readText() })
         val app = this
         Categorias.fonteProprias = { Armazem.categoriasProprias(app).map { Armazem.caminhoCategoria(it) } }

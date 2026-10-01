@@ -276,12 +276,13 @@
   };
 
   const Interpretador = {
-    numero: /\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)/,
+    numero: /\d{1,3}(?:,\d{3})+\.\d{1,2}(?!\d)|\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)/,
     milhar: /^\d{1,3}(?:\.\d{3})+$/,
-    simbolos: () => /r\$|€|\beuros?\b|\beur\b|\breais\b/gi,
+    simbolos: () => /r\$|\$|€|\bdollars?\b|\bbucks?\b|\beuros?\b|\beur\b|\breais\b/gi,
     paraNumero(s) {
       let x = String(s == null ? "" : s).trim().replace(this.simbolos(), "").trim();
-      if (x.includes(",")) x = x.replace(/\./g, "").replace(",", ".");
+      if (/^\d{1,3}(?:,\d{3})+\.\d{1,2}$/.test(x)) x = x.replace(/,/g, "");
+      else if (x.includes(",")) x = x.replace(/\./g, "").replace(",", ".");
       else if (this.milhar.test(x)) x = x.replace(/\./g, "");
       if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(x)) return null;
       const v = parseFloat(x);

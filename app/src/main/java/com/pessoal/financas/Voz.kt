@@ -25,7 +25,7 @@ class Voz(private val act: Activity, private val js: (String) -> Unit) : Recogni
 
     private fun intencao() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (Formato.en) "en-US" else "pt-BR")
         .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, act.packageName)
@@ -53,7 +53,7 @@ class Voz(private val act: Activity, private val js: (String) -> Unit) : Recogni
     private fun usarDialogo() {
         try {
             @Suppress("DEPRECATION")
-            act.startActivityForResult(intencao().putExtra(RecognizerIntent.EXTRA_PROMPT, "Diga o valor e o que foi"), PEDIDO_DIALOGO)
+            act.startActivityForResult(intencao().putExtra(RecognizerIntent.EXTRA_PROMPT, if (Formato.en) "Say the amount and what it was" else "Diga o valor e o que foi"), PEDIDO_DIALOGO)
         } catch (e: Exception) {
             enviar("erro", msg = "Reconhecimento de voz indisponível. Instale ou ative o app Google.")
         }

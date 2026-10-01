@@ -93,6 +93,14 @@ object Ajustes {
     fun nome(ctx: Context): String = p(ctx).getString("nome", "Eu") ?: "Eu"
     fun salvarNome(ctx: Context, nome: String) { p(ctx).edit().putString("nome", nome.ifBlank { "Eu" }).commit() }
 
+    /** Idioma da interface ("pt" ou "en"); vem da WebView e vale também para notificações e voz. */
+    fun idioma(ctx: Context): String = p(ctx).getString("idioma", "") ?: ""
+    fun salvarIdioma(ctx: Context, l: String) {
+        val v = if (l == "en") "en" else "pt"
+        p(ctx).edit().putString("idioma", v).commit()
+        Formato.en = v == "en"
+    }
+
     fun moeda(ctx: Context): String = p(ctx).getString("moeda", "EUR") ?: "EUR"
     fun salvarMoeda(ctx: Context, codigo: String) {
         val c = if (codigo == "BRL") "BRL" else "EUR"
@@ -532,14 +540,15 @@ object Fala {
 
 /** Entende "5,50 café", "mercado 45,90", "1.250,00 renda" e "+1090 salário" (o + indica entrada). */
 object Interpretador {
-    private val numero = Regex("""\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)""")
+    private val numero = Regex("""\d{1,3}(?:,\d{3})+\.\d{1,2}(?!\d)|\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)""")
     private val milhar = Regex("""\d{1,3}(?:\.\d{3})+""")
-    private val simbolos = Regex("""(?i)r\$|€|\beuros?\b|\beur\b|\breais\b""")
+    private val simbolos = Regex("""(?i)r\$|\$|€|\bdollars?\b|\bbucks?\b|\beuros?\b|\beur\b|\breais\b""")
     private val moedaDepois = Regex("""^\s*(?:€|(?i:euros?|eur|reais)\b)""")
 
     fun paraNumero(s: String): Double? {
         var x = s.trim().replace(simbolos, "").trim()
-        if (x.contains(',')) x = x.replace(".", "").replace(',', '.')
+        if (Regex("""\d{1,3}(?:,\d{3})+\.\d{1,2}""").matches(x)) x = x.replace(",", "")
+        else if (x.contains(',')) x = x.replace(".", "").replace(',', '.')
         else if (milhar.matches(x)) x = x.replace(".", "")
         return x.toDoubleOrNull()
     }
@@ -569,8 +578,9 @@ object Interpretador {
 object Formato {
     /** Moeda atual; carregada ao iniciar o app (AppFinancas) e ao mudar nos ajustes. */
     @Volatile var codigo: String = "EUR"
+    @Volatile var en: Boolean = false
 
-    private fun local(): Locale = if (codigo == "BRL") Locale("pt", "BR") else Locale("pt", "PT")
+    private fun local(): Locale = if (en) (if (codigo == "BRL") Locale("en", "US") else Locale("en", "IE")) else if (codigo == "BRL") Locale("pt", "BR") else Locale("pt", "PT")
 
     fun moeda(v: Double): String = NumberFormat.getCurrencyInstance(local()).apply {
         currency = Currency.getInstance(codigo)
