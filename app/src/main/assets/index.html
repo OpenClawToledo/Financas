@@ -500,6 +500,7 @@ svg .lin-agora{stroke:var(--text);stroke-width:1;stroke-dasharray:2 3;opacity:.6
 .graf-zoom button{background:var(--surface2);color:var(--text);border:0;border-radius:999px;min-width:38px;padding:6px 12px;font:inherit;font-size:.85rem}
 .graf-zoom button.on{background:var(--text);color:var(--ink)}
 .graf-zoom small{flex-basis:100%;text-align:center;color:var(--muted);font-size:.72rem}
+.pend-tag{background:rgba(255,181,71,.18);color:var(--mango)}
 </style>
 </head>
 <body>
@@ -577,8 +578,11 @@ function preparar(){
   S.todos = S.gastos;
   S.meusLanc = S.todos.filter(meu);
   S.vis = S.todos.filter(visivel);
-  S.desp = S.vis.filter(g => g.t !== "r");
-  S.rec = S.vis.filter(g => g.t === "r");
+  // lançamento com data futura é pendente: só conta quando a data chegar
+  const agoraMs = Date.now();
+  S.fut = S.vis.filter(g => g.q > agoraMs);
+  S.desp = S.vis.filter(g => g.t !== "r" && g.q <= agoraMs);
+  S.rec = S.vis.filter(g => g.t === "r" && g.q <= agoraMs);
   S.contasVis = S.contas.filter(visivel);
   S.contasMes = S.contasVis.filter(c => c.ocs && c.ocs.length);
   S.metasVis = S.metas.filter(m => temCasal() || meu(m));
@@ -605,6 +609,7 @@ function rotuloDia(ms){
 }
 function haQuanto(ms){
   const s = (Date.now()-ms)/1000;
+  if (s < -60){ const dias = Math.ceil(-s / 86400); return dias <= 1 ? "amanhã ou hoje mais tarde" : "em "+dias+" dias"; }
   if (s < 60) return "agora";
   if (s < 3600) return "há "+Math.floor(s/60)+" min";
   if (s < 86400) return "há "+Math.floor(s/3600)+" h";
@@ -1091,13 +1096,14 @@ const passaFiltro = x => {
 function cartoesMes(){
   const {ano, mes} = extr;
   const prev = projetadas(ano, mes).filter(passaFiltro).sort((a,b) => a.q - b.q);
-  const somaP = t => prev.filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
-  let h = prev.length ? '<div class="dia">Pendentes'+(somaP(true) ? ' · a receber '+din(somaP(true)) : '')+(somaP(false) ? ' · a pagar '+din(somaP(false)) : '')+'</div>' + prev.map(linhaExtrato).join("") : "";
+  const fut = S.fut.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).sort((a,b) => a.q - b.q);
+  const somaP = t => prev.concat(fut).filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
+  let h = prev.length || fut.length ? '<div class="dia">Pendentes'+(somaP(true) ? ' · a receber '+din(somaP(true)) : '')+(somaP(false) ? ' · a pagar '+din(somaP(false)) : '')+'</div>' + prev.map(linhaExtrato).join("") + fut.map(post).join("") : "";
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
   // trocas não entram no feed nem nos totais: só aparecem na barra do destino
-  const itens = S.vis.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
+  const itens = S.vis.filter(g => g.q <= Date.now() && noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
     .sort((a,b) => b.q - a.q);
-  if (!itens.length && !prev.length){
+  if (!itens.length && !prev.length && !fut.length){
     if (!semFiltro) return '<div class="vazio">Nada encontrado com esses filtros.</div>';
     if (!S.vis.length) return '<div class="vazio"><span class="grande">👋</span>'+(modo === "nos" ? "Nada compartilhado ainda. Ao lançar, marque “Nós” para aparecer aqui." :
       'Toque no + ou agite o celular (ative em Perfil) e escreva algo como “5,50 café”.<br>Para dinheiro que entra, comece com +, como “+1090 salário”.')+'</div>';
@@ -1372,7 +1378,7 @@ function graficoLinha(){
   const real = S.vis.filter(g => g.q >= ini && g.q < fim && g.q <= corte);
   const ev = (lista, tipoR) => lista.filter(g => (g.t === "r") === tipoR).map(g => ({q: g.q, v: g.v})).sort((a,b) => a.q - b.q);
   const gan = ev(real, true), sai = ev(real, false);
-  const pend = projetadas(ano, mes);
+  const pend = projetadas(ano, mes).concat(S.fut.filter(g => noMes(g.q, ano, mes)));
   const pe = tipoR => pend.filter(x => (x.t === "r") === tipoR).map(x => ({q: Math.min(Math.max(x.q, corte), fim - 1), v: x.v})).sort((a,b) => a.q - b.q);
   const pg = pe(true), ps = pe(false);
   const soma = l => l.reduce((a,e) => a + e.v, 0);
@@ -1636,7 +1642,7 @@ function post(g){
   const r = g.t === "r";
   const ult = g.cm.length ? g.cm[g.cm.length-1] : null;
   return '<article class="post" data-id="'+g.id+'"'+(meu(g) ? '' : ' data-alheio="1"')+'><div class="fundo-apagar">Apagar</div><div class="corpo">'
-    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
+    + '<header><span class="av" style="--c:'+cor+'">'+emoji+'</span><div class="quem"><b>'+esc(nomeDe(g.dono))+(g.sh ? '<span class="nos-tag">Nós</span>' : '')+(contaDaSerie(g) ? '<span class="rep-tag">🔁 repete</span>' : '')+(g.q > Date.now() ? '<span class="rep-tag pend-tag">⏳ '+(g.t === "r" ? "pendente a receber" : "pendente a pagar")+'</span>' : '')+'</b><small>'+haQuanto(g.q)+'</small></div>'
     + '<button class="tag" style="--c:'+cor+'" data-cat>'+esc(catNome(g.c))+'</button></header>'
     + '<div class="valor'+(r ? " pos" : "")+'">'+(r ? "+" : "")+din(g.v)+'</div><p class="desc">'+esc(g.d)+'</p>'
     + (r ? "" : equivalencia(g.v))
