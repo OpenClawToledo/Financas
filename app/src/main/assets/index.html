@@ -42,7 +42,11 @@ main{padding:0 0 110px}
 .pos{color:var(--ok)} .neg{color:var(--late)}
 
 /* ---------- Dinheiro de hoje (relógio) ---------- */
-.relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface)}
+.relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.rel-mais{margin:10px 0 0;text-align:right;font-size:.74rem;color:var(--muted)}
+.rel-dets{margin:6px 22px 10px}.rel-det{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.rel-det span{display:flex;flex-direction:column}.rel-det small{color:var(--muted);font-size:.74rem;margin-top:2px}.rel-det b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.rel-det.tot{border-bottom:1px solid var(--line)}.rel-det.tot b{font-size:1.05rem}
 .rel-topo{display:flex;align-items:flex-start;gap:12px}
 .rel-topo .txt{flex:1;min-width:0}
 .rel-topo small{display:block;color:var(--muted);font-size:.85rem}
@@ -615,7 +619,7 @@ function rotuloDia(ms){
 }
 function haQuanto(ms){
   const s = (Date.now()-ms)/1000;
-  if (s < -60){ const dias = Math.ceil(-s / 86400); return dias <= 1 ? L("amanhã ou hoje mais tarde") : LE("em "+dias+" dias","in "+dias+" days"); }
+  if (s < -60){ const dias = Math.ceil(-s / 86400); return dias <= 1 ? L("amanhã ou hoje mais tarde") : LE("em "+dias+L(" dias"),"in "+dias+" days"); }
   if (s < 60) return L("agora");
   if (s < 3600) return LE("há "+Math.floor(s/60)+" min",Math.floor(s/60)+L(" min ago"));
   if (s < 86400) return LE("há "+Math.floor(s/3600)+" h",Math.floor(s/3600)+L(" h ago"));
@@ -625,7 +629,7 @@ function prazo(d){
   if (d < 0) return L("atrasada");
   if (d === 0) return "hoje";
   if (d === 1) return L("amanhã");
-  return LE("em "+d+" dias","in "+d+" days");
+  return LE("em "+d+L(" dias"),"in "+d+" days");
 }
 const idxMes = s => { if (!s) return null; const p = s.split("-").map(Number); return p[0]*12 + p[1] - 1; };
 const mesStr = (a, m) => a + "-" + String(m+1).padStart(2, "0");
@@ -638,7 +642,7 @@ function parcelaEm(c, a, m){
   const n = i / p;
   return !c.vezes || n < c.vezes ? n + 1 : null;
 }
-const FREQ = {m:L("todo mês"), q:"a cada 15 dias", s:"toda semana"};
+const FREQ = {m:L("todo mês"), q:L("a cada 15 dias"), s:"toda semana"};
 const PM_TXT = {1:L("todo mês"), 2:L("a cada 2 meses"), 3:L("a cada 3 meses"), 6:L("a cada 6 meses"), 12:L("todo ano")};
 const freqTxt = c => (!c.freq || c.freq === "m") ? (PM_TXT[c.pm || 1] || LE("a cada "+c.pm+" meses","every "+c.pm+" months")) : FREQ[c.freq];
 /** Datas em que a conta vence no mês (a = ano, m = mês 0-11). */
@@ -1115,7 +1119,7 @@ function cartoesMes(){
   const fut = S.fut.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).sort((a,b) => a.q - b.q);
   const somaP = t => prev.concat(fut).filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
   const todosP = prev.concat(fut), recP = todosP.filter(x => x.t === "r"), pagP = todosP.filter(x => x.t !== "r");
-  const bloco = (lista, titulo) => lista.length ? '<div class="dia">'+titulo+' · '+din(lista.reduce((a,x) => a + x.v, 0))+'</div>' + lista.map(x => x.prev ? linhaExtrato(x) : post(x)).join("") : "";
+  const bloco = (lista, titulo) => lista.length ? L('<div class="dia">')+titulo+' · '+din(lista.reduce((a,x) => a + x.v, 0))+'</div>' + lista.map(x => x.prev ? linhaExtrato(x) : post(x)).join("") : "";
   let h = bloco(recP, L("Pendente a receber")) + bloco(pagP, L("Comprometido a pagar"));
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
   // trocas não entram no feed nem nos totais: só aparecem na barra do destino
@@ -1130,7 +1134,7 @@ function cartoesMes(){
   let diaAtual = null;
   itens.slice(0, limitePosts).forEach(it => {
     const k = chaveDia(it.q);
-    if (k !== diaAtual){ diaAtual = k; h += '<div class="dia">'+rotuloDia(it.q)+'</div>'; }
+    if (k !== diaAtual){ diaAtual = k; h += L('<div class="dia">')+rotuloDia(it.q)+'</div>'; }
     h += post(it.g);
   });
   if (itens.length > limitePosts) h += L('<button class="mais" id="verMais">Ver anteriores</button>');
@@ -1146,7 +1150,7 @@ function bannerAtualizacao(){
 }
 /* ================= Gráfico do mês: Categorias · Dia a dia · Mês a mês ================= */
 let grafVista = (() => { try { return localStorage.getItem("fin.graf") || "cat"; } catch(e){ return "cat"; } })();
-const GRAF_ABAS = [["cat",L("Categorias")],["dia",L("Dia a dia")],["mes",L("Mês a mês")],["lin",L("📈 Linha")]];
+const GRAF_ABAS = [["cat",L("Categorias")],[L("dia"),L("Dia a dia")],["mes",L("Mês a mês")],["lin",L("📈 Linha")]];
 const COR_RESTO = "#5A5470";
 function saidasDoMes(a, m){
   const fut = inicioMes(a, m) > inicioMes(MES_ATUAL.ano, MES_ATUAL.mes);
@@ -1620,7 +1624,29 @@ function relogioDia(){
   const linhas = Object.entries(h.porCat).sort((a, b) => b[1] - a[1]);
   if (linhas.length) out += '<div class="rel-talao">'+linhas.slice(0, 4).map(([k, v]) => '<div><span>'+cat(k)[0]+' '+esc(k)+'</span><span></span><span>'+din(v)+'</span></div>').join("")
     + L('<div class="tot"><span>Total de hoje</span><span></span><span>')+din(h.gasto)+'</span></div></div>';
-  return out + '</section>';
+  return out + L('<p class="rel-mais">Segure para ver como é calculado →</p>') + '</section>';
+}
+/** Folha com o passo a passo do relógio: de onde vem cada número. */
+function folhaRelogio(){
+  const h = numerosHoje(), n = numerosMes();
+  const lin = (t, v, cls, nota) => '<div class="rel-det'+(cls ? " "+cls : "")+'"><span>'+t+(nota ? '<small>'+nota+'</small>' : '')+'</span><b>'+v+'</b></div>';
+  const disp = n.livre + n.aReceber - n.compMes + h.gasto;
+  abrirFolha('<h3>'+L("Como o relógio calcula")+'</h3>'
+    + '<div class="rel-dets">'
+    + lin(L("Entrou no mês"), "+"+din(n.entrou))
+    + lin(L("Ainda vai entrar"), "+"+din(n.aReceber), "", L("salário e entradas programadas, ainda não recebidas"))
+    + lin(L("Já saiu no mês"), "−"+din(n.saiu), "", L("tudo o que você lançou, inclusive contas já pagas"))
+    + lin(L("Guardado em metas e reservas"), "−"+din(n.sep))
+    + lin(L("Contas a pagar neste mês"), "−"+din(n.compMes), "", L("parcelas, assinaturas e contas fixas que ainda vencem"))
+    + lin(L("Devolvido: gasto de hoje"), "+"+din(h.gasto), "", L("o que saiu hoje conta contra o orçamento de hoje, não contra o mês"))
+    + lin(L("Disponível para o resto do mês"), din(disp), "tot")
+    + lin(L("Dividido por")+" "+h.diasRest+" "+(h.diasRest > 1 ? L("dias") : L("dia")), din(h.orc), "tot", L("hoje incluído: este é o seu dinheiro de hoje"))
+    + lin(L("Já gasto hoje"), "−"+din(h.gasto))
+    + lin(L("Ainda pode gastar hoje"), din(Math.max(0, h.resta)), "tot")
+    + '</div>'
+    + '<p class="nota">'+L("Cada hora acordado (das 7h à meia-noite, 17 horas) vale ")+din(h.orc / (24 - DIA_INI))+L(". A barra e a hora de “acaba às” usam o seu ritmo de gasto de hoje.")+'</p>'
+    + (n.compFuturo > 0 ? '<p class="nota">'+L("Parcelas dos meses seguintes: ")+din(n.compFuturo)+L(". Elas contam como comprometido, mas só entram na conta do dia no mês em que vencem.")+'</p>' : '')
+    + '<button class="btn" id="relFecha">'+L("Entendi")+'</button>', f => { $("#relFecha", f).onclick = () => fecharFolha(); });
 }
 /** O que o selo da nota comenta sobre cada gasto (frases originais do app). */
 function falaNota(g){
@@ -2113,6 +2139,14 @@ function ligarResto(){
   };
   $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
   $$("[data-nova-entrada]").forEach(b => b.onclick = () => folhaNovo(true));
+  const rel = $(".relogio"); if (rel && !rel.querySelector("[data-nova-entrada]")) {
+    let t = null, x0 = 0, y0 = 0;
+    const parar = () => { clearTimeout(t); t = null; };
+    rel.addEventListener("pointerdown", e => { if (e.target.closest("input,button")) return; x0 = e.clientX; y0 = e.clientY; parar(); t = setTimeout(() => { t = null; vibrar(); folhaRelogio(); }, 450); });
+    rel.addEventListener("pointermove", e => { if (t && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) parar(); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(ev => rel.addEventListener(ev, parar));
+    rel.addEventListener("contextmenu", e => e.preventDefault());
+  }
 
   // meses, filtros e busca
   $$("[data-mes]").forEach(b => b.onclick = () => { const [a, m] = b.dataset.mes.split("-").map(Number); extr.ano = a; extr.mes = m; render(false); });
@@ -3165,10 +3199,10 @@ function pagAdmin(){
   if (adm.aba === "pedidos"){
     if (!lista.length) h += L('<p class="nota">Nenhum pedido pendente.</p>');
     h += '<div class="contas-lista adm-lista">'+lista.map(p => '<div class="item"><div class="info"><b>'+esc(p.nome || p.email || L("Sem nome"))+'</b>'
-      + '<small>'+esc(p.email || "")+' · pediu '+(p.dias_pedidos || "?")+' dias · '+haQuanto(Date.parse(p.criado_em))+'</small>'
+      + '<small>'+esc(p.email || "")+' · pediu '+(p.dias_pedidos || "?")+L(' dias · ')+haQuanto(Date.parse(p.criado_em))+'</small>'
       + (p.mensagem ? '<small>“'+esc(p.mensagem)+'”</small>' : '')
       + (p.pro_expira_em && Date.parse(p.pro_expira_em) > Date.now() ? L('<small class="pos">Premium até ')+dataLonga(Date.parse(p.pro_expira_em))+'</small>' : '')
-      + '<div class="adm-botoes">'+[30,90,365].map(d => '<button class="'+(d === p.dias_pedidos ? "ok" : "")+'" data-aprovar="'+p.pedido_id+'" data-dias="'+d+'">+'+d+' dias</button>').join("")
+      + '<div class="adm-botoes">'+[30,90,365].map(d => '<button class="'+(d === p.dias_pedidos ? "ok" : "")+'" data-aprovar="'+p.pedido_id+L('" data-dias="')+d+'">+'+d+L(' dias</button>')).join("")
       + '<button class="del" data-recusar="'+p.pedido_id+L('">Recusar</button></div></div></div>')).join("")+'</div>';
   } else if (adm.aba === "usuarios"){
     h += '<p class="nota">'+lista.length+' conta'+(lista.length === 1 ? "" : "s")+' · '+lista.filter(u => u.pro_ativo).length+L(' com Premium</p>');
@@ -3198,7 +3232,7 @@ function ligarAdmin(){
   const rc = $("#admRecarregar"); if (rc) rc.onclick = () => { delete adm[adm.aba]; render(false); };
   const refazer = (...abas) => { abas.forEach(a => delete adm[a]); render(false); };
   $$("[data-aprovar]").forEach(b => b.onclick = () => chamarPro("admAprovar", "aprovar_pedido", {p_pedido_id: +b.dataset.aprovar, p_dias: +b.dataset.dias}, b, r => {
-    if (!r.ok){ aviso(r.msg); return; } vibrar(); aviso(L("Aprovado: +")+b.dataset.dias+" dias"); refazer("pedidos", "usuarios");
+    if (!r.ok){ aviso(r.msg); return; } vibrar(); aviso(L("Aprovado: +")+b.dataset.dias+L(" dias")); refazer("pedidos", "usuarios");
   }));
   $$("[data-recusar]").forEach(b => b.onclick = () => confirmar(L("Recusar pedido?"), L("A pessoa continua no plano Base."), L("Recusar"), () =>
     chamarPro("admRecusar", "recusar_pedido", {p_pedido_id: +b.dataset.recusar, p_resposta: null}, null, r => { aviso(r.ok ? L("Pedido recusado") : r.msg); refazer("pedidos"); })));
@@ -3212,7 +3246,7 @@ function ligarAdmin(){
     chamarPro("admGerar", "admin_gerar_codigo", {p_dias: +b.dataset.gerar, p_observacao: obs || null}, b, (r, cod) => {
       if (!r.ok || !cod){ aviso(r.msg || L("Não foi possível gerar")); return; }
       vibrar();
-      abrirFolha(L('<h3>Código de ')+b.dataset.gerar+' dias</h3><div class="codigo-grande">'+esc(cod)+'</div>'
+      abrirFolha(L('<h3>Código de ')+b.dataset.gerar+L(' dias</h3><div class="codigo-grande">')+esc(cod)+'</div>'
         + L('<p class="nota">Anote ou envie agora: por segurança, este código não aparece de novo.</p>')
         + L('<div class="linha-botoes"><button class="btn" id="cgCopiar">Copiar</button></div>'), f => {
         $("#cgCopiar", f).onclick = () => { aviso(aplicar(ponte.copiar(L("Código do Finanças Premium: ")+cod)).msg); };
