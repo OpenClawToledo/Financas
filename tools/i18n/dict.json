@@ -894,5 +894,11 @@
 ") + o do parceiro(a) (": ") + your partner's (",
 "Compartilhados que você lançou: ": "Shared entries you logged: ",
 ". Eles aparecem em Eu, em Nós e em Total, mas contam uma vez só no Total.": ". They show in Me, Us and Total, but count only once in Total.",
-"Segure para ver por que o “Saiu” muda →": "Hold to see why “Spent” changes →"
+"Segure para ver por que o “Saiu” muda →": "Hold to see why “Spent” changes →",
+"Onde entrou": "Where it came in",
+"De onde saiu": "Where it came out of",
+"+ Nova conta": "+ New account",
+"Sem conta": "No account",
+"O app só calcula saldos das contas, cartões e carteiras que você cadastrar (Perfil → Contas e cartões).": "The app only calculates balances for the accounts, cards and wallets you add (Profile → Accounts & cards).",
+"“Sem conta” não mexe em nenhum saldo; só as contas cadastradas entram no cálculo.": "“No account” doesn't touch any balance; only the accounts you added count."
 }

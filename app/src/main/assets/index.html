@@ -1353,10 +1353,14 @@ function saldoCarteira(c){
   const agora = Date.now();
   return (c.si || 0) + S.todos.filter(g => g.ca === c.id && g.q <= agora).reduce((a,g) => a + (g.t === "r" ? g.v : -g.v), 0);
 }
-function chipsCarteira(atual, attr){
-  const l = minhasCarteiras(); if (!l.length) return "";
-  return L('<div class="rotulo">Conta ou cartão</div><div class="chips rolar"><button class="chip')+(atual ? "" : " on")+'" '+attr+L('="">Nenhuma</button>')
-    + l.map(c => '<button class="chip'+(atual === c.id ? " on" : "")+'" '+attr+'="'+c.id+'">'+esc(c.e)+' '+esc(c.n)+'</button>').join("") + '</div>';
+function chipsCarteira(atual, attr, receita, comNova){
+  const l = minhasCarteiras();
+  const rot = '<div class="rotulo">'+(receita ? L("Onde entrou") : L("De onde saiu"))+'</div>';
+  const nova = comNova ? '<button class="chip" data-nova-cart>'+L("+ Nova conta")+'</button>' : "";
+  if (!l.length) return rot + (comNova ? '<div class="chips">'+nova+'</div>' : "") + '<p class="nota">'+L("O app só calcula saldos das contas, cartões e carteiras que você cadastrar (Perfil → Contas e cartões).")+'</p>';
+  return rot + '<div class="chips rolar"><button class="chip'+(atual ? "" : " on")+'" '+attr+'="">'+L("Sem conta")+'</button>'
+    + l.map(c => '<button class="chip'+(atual === c.id ? " on" : "")+'" '+attr+'="'+c.id+'">'+esc(c.e)+' '+esc(c.n)+'</button>').join("") + nova + '</div>'
+    + '<p class="nota">'+L("“Sem conta” não mexe em nenhum saldo; só as contas cadastradas entram no cálculo.")+'</p>';
 }
 function pagCarteiras(){
   const vis = carteirasVis(), minhas = vis.filter(meu), deles = vis.filter(c => !meu(c));
@@ -1371,7 +1375,7 @@ function pagCarteiras(){
   if (deles.length) h += '<div class="grupo">De '+esc(S.parceiro.nome)+'</div>' + deles.map(linha).join("");
   return h + L('<button class="btn" id="cartNova">+ Nova conta, cartão ou carteira</button>');
 }
-function folhaCarteira(id){
+function folhaCarteira(id, depois){
   const c = id ? carteiraDe(id) : null;
   let e = c ? c.e : "🏦", t = c ? c.t : "b", sh = c ? !!c.sh : false;
   abrirFolha('<h3>'+(c ? L("Editar") : L("Nova"))+L(' conta, cartão ou carteira</h3>')
@@ -1390,9 +1394,11 @@ function folhaCarteira(id){
     };
     montar();
     $("#cSalvar", f).onclick = () => {
+      const antes = new Set((S.carteiras || []).map(x => x.id));
       const r = aplicar(ponte.salvarCarteira(id || "", $("#cN", f).value, e, t, $("#cS", f).value, sh));
       if (!r.ok){ aviso(r.msg || L("Confira o nome e o saldo")); return; }
-      vibrar(); fecharFolha(); render(false);
+      vibrar(); fecharFolha();
+      if (depois){ const nova = (S.carteiras || []).find(x => !antes.has(x.id)); depois(nova ? nova.id : ""); } else render(false);
     };
     const ap = $("#cApagar", f);
     if (ap) ap.onclick = () => confirmar(L("Apagar “")+c.n+"”?", L("Os lançamentos continuam, só deixam de ter conta."), L("Apagar"), () => { aplicar(ponte.removerCarteira(id)); fecharFolha(); render(false); });
@@ -2722,7 +2728,7 @@ function folhaNovo(receitaInicial, quandoInicial){
     const numTxt = t => { const v = parseFloat(String(t).replace(/\s/g, "").replace(",", ".")); return isNaN(v) ? 0 : v; };
     const montarExtras = () => {
       const cb = $("#carteiraBox", f), db = $("#destinoBox", f);
-      cb.innerHTML = imediato() ? chipsCarteira(ca, "data-ca") : "";
+      cb.innerHTML = imediato() ? chipsCarteira(ca, "data-ca", receita, false) : "";
       $$("[data-ca]", cb).forEach(b => b.onclick = () => { ca = b.dataset.ca; montarExtras(); });
       if (!(receita && imediato())){ db.innerHTML = ""; return; }
       const ms = S.metasVis;
@@ -2977,7 +2983,8 @@ function folhaEditar(id){
       if (rodaDe !== receita){ rodaDe = receita; roda($("#eC", f), itensCategoria(receita, false), escolhida, v => { escolhida = v; }); }
       $("#nosBox", f).innerHTML = chaveNos(sh);
       const sw = $("#swNos", f); if (sw) sw.onclick = () => { sh = !sh; montar(); };
-      const ec = $("#eCart", f); ec.innerHTML = chipsCarteira(caE, "data-cae");
+      const ec = $("#eCart", f); ec.innerHTML = chipsCarteira(caE, "data-cae", receita, true);
+      const nc = $("[data-nova-cart]", ec); if (nc) nc.onclick = () => folhaCarteira("", novoId => { if (novoId) aplicar(ponte.mudarCarteira(id, novoId)); folhaEditar(id); });
       $$("[data-cae]", ec).forEach(b => b.onclick = () => { caE = b.dataset.cae; montar(); });
     };
     $$(".seg button", f).forEach(b => b.onclick = () => {
