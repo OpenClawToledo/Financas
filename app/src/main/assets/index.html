@@ -45,6 +45,7 @@ main{padding:0 0 110px}
 .relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .modo-nota{margin:0 18px 8px;font-size:.78rem;color:var(--muted)}
 .ir-extrato{display:flex;gap:10px;margin:0 18px 18px}.ir-extrato .btn{flex:1;margin:0}
+.acerto-linha{margin:-6px 18px 14px;font-size:.84rem;color:var(--muted);text-align:center}
 .rel-mais{margin:10px 0 0;text-align:right;font-size:.74rem;color:var(--muted)}
 .rel-dets{margin:6px 22px 10px}.rel-det{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
 .rel-det span{display:flex;flex-direction:column}.rel-det small{color:var(--muted);font-size:.74rem;margin-top:2px}.rel-det b{white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -1056,31 +1057,25 @@ function heroiAtual(){
   if (temEntradas){
     h += L('<div class="duas"><div><small>Livre agora</small><div class="big ')+(n.livre < 0 ? "neg" : "")+'" data-contar="'+n.livre+'">'+din(n.livre)+'</div></div>'
       + L('<div><small>Comprometido</small><div class="med">')+din(n.comprometido)+'</div>'
-      + (n.compFuturo > 0 ? '<small>'+din(n.compMes)+L(' este mês · ')+din(n.compFuturo)+L(' depois')+'</small>' : '')
-      + (n.aReceber > 0 ? '<small class="pos">+'+din(n.aReceber)+' a receber</small>' : '')+'</div></div>';
+      + '</div></div>';
     const tot = Math.max(n.entrou, n.saiu, 1);
     h += '<div class="fluxo"><i class="e" data-w="'+(n.entrou/tot/2)+'"></i><i class="s" data-w="'+(n.saiu/tot/2)+'"></i></div>'
-      + L('<div class="legenda"><span>Entrou ')+din(n.entrou)+L('</span><span>Saiu ')+din(n.saiu)+'</span>'+(n.sep ? L('<span>Guardado ')+din(n.sep)+'</span>' : '')+'</div>'
-      + (n.sep ? L('<div class="linha-info">Livre já desconta <b>')+din(n.sep)+L('</b> guardados em planos, trocas e reservas.</div>') : '')
-      + L('<div class="linha-info">No fim do mês deve ')+(n.sobra >= 0 ? L('sobrar') : L('faltar'))+' <b class="'+(n.sobra < 0 ? "neg" : "")+'">'+din(Math.abs(n.sobra))+'</b></div>';
+      + L('<div class="legenda"><span>Entrou ')+din(n.entrou)+L('</span><span>Saiu ')+din(n.saiu)+'</span>'+(n.sep ? L('<span>Guardado ')+din(n.sep)+'</span>' : '')+'</div>';
   } else {
     h += '<div class="big" data-contar="'+n.saiu+'">'+din(n.saiu)+'</div>' + equivalencia(n.saiu)
       + (n.comprometido > 0 ? L('<div class="linha-info">Comprometido: <b>')+din(n.comprometido)+'</b>'+(n.compFuturo > 0 ? ' ('+din(n.compMes)+L(' este mês, ')+din(n.compFuturo)+L(' depois)') : '')+'</div>' : '')
       + (modo === "nos" ? '' : L('<button class="dica-btn" data-nova-entrada>Registre o que entra (salário, extras) para ver quanto está livre →</button>'));
   }
-  if (n.temAnt){
-    const dif = n.saiu - n.saiuAnt;
-    if (Math.abs(dif) >= 1) h += L('<div class="linha-info">Até dia ')+S.hoje+': <b class="'+(dif > 0 ? "neg" : "pos")+'">'+din(Math.abs(dif))+' '+(dif > 0 ? L("a mais") : L("a menos"))+L('</b> que em ')+n.nomeAnt
-      + (equivTexto(Math.abs(dif)) ? ' ('+esc(equivTexto(Math.abs(dif)))+')' : '') + '</div>';
-  }
-  if (temCasal() && modo !== "eu" && (n.pagoEu || n.pagoPar)){
-    const p = S.parceiro.nome;
-    const quem = Math.abs(n.acerto) < 0.5 ? L("Vocês estão quites") : n.acerto > 0 ? '<b>'+esc(p)+L('</b> te deve <b>')+din(n.acerto)+'</b>' : L('Você deve <b>')+din(-n.acerto)+'</b> a <b>'+esc(p)+'</b>';
-    h += '<div class="acerto">'+bolinha(S.eu.id)+L(' pagou ')+din(n.pagoEu)+' &nbsp; '+bolinha(S.parceiro.id)+L(' pagou ')+din(n.pagoPar)+'<br>'+quem+L(' (divisão 50/50 do que é “Nós”)</div>');
-  }
   if (temCasal()) h += L('<p class="rel-mais">Segure para ver por que o “Saiu” muda →</p>');
   h += '</section>';
   return h;
+}
+/** Acerto do casal em uma linha (só no resumo Total). */
+function acertoLinha(){
+  if (!(temCasal() && modo === "total")) return "";
+  const n = numerosMes(); if (!(n.pagoEu || n.pagoPar) || Math.abs(n.acerto) < 0.5) return "";
+  const p = esc(S.parceiro.nome);
+  return '<div class="acerto-linha">'+(n.acerto > 0 ? p+L(" te deve ")+'<b>'+din(n.acerto)+'</b>' : L("Você deve ")+'<b>'+din(-n.acerto)+'</b>'+LE(" a ",": ")+p)+L(" (compartilhados)")+'</div>';
 }
 function insightAtual(){
   let h = "";
@@ -1097,7 +1092,7 @@ function insightAtual(){
 }
 function carrossel(){
   let h = '<div class="meses" id="meses">';
-  for (let i = -4; i <= 3; i++){
+  for (let i = -5; i <= 0; i++){
     const d = new Date(MES_ATUAL.ano, MES_ATUAL.mes + i, 1);
     const on = d.getFullYear() === extr.ano && d.getMonth() === extr.mes;
     h += '<button class="mes-chip'+(on ? " on" : "")+(i > 0 ? " futuro" : "")+'" data-mes="'+d.getFullYear()+"-"+d.getMonth()+'"><small>'+d.getFullYear()+'</small>'+(i === 0 ? L("Hoje") : cap(MESES[d.getMonth()]))+'</button>';
@@ -1703,15 +1698,16 @@ function falaNota(g){
 function telaFeed(){
   const atual = extr.ano === MES_ATUAL.ano && extr.mes === MES_ATUAL.mes;
   let h = bannerAtualizacao() + seletorModo() + carrossel();
+  vista = "cartoes";   // só cartões: sem lista nem calendário de futuros
   const resumo = temCasal() && modo === "total";     // casal: Total = resumos; Eu e Nós = extrato e contas comprometidas
   if (temCasal()) h += '<p class="modo-nota">'+(modo === "total" ? L("Resumo do casal: tudo o que entrou e saiu, seu e do parceiro(a).") : modo === "eu" ? L("Extrato só seu: o que você lançou, pessoal e compartilhado.") : L("Extrato do casal: só o que está marcado como “Nós”."))+'</p>';
-  if (resumo) h += (atual ? relogioDia() + heroiAtual() + insightAtual() : resumoMes()) + grafico()
+  if (resumo) h += (atual ? relogioDia() + heroiAtual() + acertoLinha() + insightAtual() : resumoMes()) + grafico()
     + '<div class="ir-extrato"><button class="btn sec" data-irmodo="eu">'+L("Ver meu extrato")+'</button><button class="btn sec" data-irmodo="nos">'+L("Ver extrato do casal")+'</button></div>';
   else h += (temCasal() ? (atual ? heroiAtual() : resumoMes()) : (atual ? relogioDia() + heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico()));
   if (resumo) return h;
   h += L('<div class="controles"><input class="busca" id="busca" placeholder="Buscar por descrição ou categoria" value="')+esc(extr.busca)+'">'
     + '<div class="filtros">'+[["todas",L("Todas")],["d",L("Saídas")],["r",L("Entradas")]].map(([k,n]) => '<button class="chip'+(extr.tipo === k ? " on" : "")+'" data-tipo="'+k+'">'+n+'</button>').join("")
-    + '<span style="flex:1"></span>'+[["cartoes",L("Cartões")],["lista",L("Lista")]].map(([k,n]) => '<button class="chip'+(vista === k ? " on" : "")+'" data-vista="'+k+'">'+n+'</button>').join("")+'</div>'
+    +'</div>'
     + (vista === "lista" ? L('<div class="filtros"><span>Ordenar</span>')+[["data",L("Data")],["valor",L("Valor")],["cat",L("Categoria")]].map(([k,n]) => '<button class="chip'+(extr.ordem === k ? " on" : "")+'" data-ordem="'+k+'">'+n+'</button>').join("")+'</div>' : '')
     + '</div>';
   return h + '<div id="listaExtrato">'+listaAtual()+'</div>';
