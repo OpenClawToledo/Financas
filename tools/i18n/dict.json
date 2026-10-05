@@ -880,5 +880,19 @@
 "Parcelas dos meses seguintes: ": "Installments in later months: ",
 ". Elas contam como comprometido, mas só entram na conta do dia no mês em que vencem.": ". They count as committed, but only enter the daily figure in the month they fall due.",
 "Entendi": "Got it",
-"Segure para ver como é calculado →": "Hold to see how it's calculated →"
+"Segure para ver como é calculado →": "Hold to see how it's calculated →",
+"Resumo do casal: tudo o que entrou e saiu, seu e do parceiro(a).": "Couple summary: everything in and out, yours and your partner's.",
+"Extrato só seu: o que você lançou, pessoal e compartilhado.": "Your statement only: what you logged, personal and shared.",
+"Extrato do casal: só o que está marcado como “Nós”.": "Couple statement: only what's marked “Us”.",
+"Ver meu extrato": "See my statement",
+"Ver extrato do casal": "See couple statement",
+"Por que o “Saiu” muda": "Why “Spent” changes",
+"O valor depende de qual aba está aberta. O mês é o mesmo; muda quais lançamentos entram na conta.": "The amount depends on which tab is open. The month is the same; what changes is which entries are counted.",
+"tudo o que você lançou (pessoal + compartilhado)": "everything you logged (personal + shared)",
+"só o marcado como “Nós”, de vocês dois": "only what's marked “Us”, from both of you",
+"tudo: o seu (": "everything: yours (",
+") + o do parceiro(a) (": ") + your partner's (",
+"Compartilhados que você lançou: ": "Shared entries you logged: ",
+". Eles aparecem em Eu, em Nós e em Total, mas contam uma vez só no Total.": ". They show in Me, Us and Total, but count only once in Total.",
+"Segure para ver por que o “Saiu” muda →": "Hold to see why “Spent” changes →"
 }

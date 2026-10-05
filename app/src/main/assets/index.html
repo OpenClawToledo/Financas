@@ -43,6 +43,8 @@ main{padding:0 0 110px}
 
 /* ---------- Dinheiro de hoje (relógio) ---------- */
 .relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.modo-nota{margin:0 18px 8px;font-size:.78rem;color:var(--muted)}
+.ir-extrato{display:flex;gap:10px;margin:0 18px 18px}.ir-extrato .btn{flex:1;margin:0}
 .rel-mais{margin:10px 0 0;text-align:right;font-size:.74rem;color:var(--muted)}
 .rel-dets{margin:6px 22px 10px}.rel-det{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
 .rel-det span{display:flex;flex-direction:column}.rel-det small{color:var(--muted);font-size:.74rem;margin-top:2px}.rel-det b{white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -1029,6 +1031,15 @@ function terminarTutorial(){
 }
 window.addEventListener("resize", () => { if (tutorialAtivo) focarPasso(); });
 
+/** Segurar ~0,5 s num elemento abre o detalhe (toque rápido não faz nada). */
+function segurar(el, fn){
+  let t = null, x0 = 0, y0 = 0;
+  const parar = () => { clearTimeout(t); t = null; };
+  el.addEventListener("pointerdown", e => { if (e.target.closest("input,button")) return; x0 = e.clientX; y0 = e.clientY; parar(); t = setTimeout(() => { t = null; vibrar(); fn(); }, 450); });
+  el.addEventListener("pointermove", e => { if (t && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) parar(); });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => el.addEventListener(ev, parar));
+  el.addEventListener("contextmenu", e => e.preventDefault());
+}
 function seletorModo(){
   if (!temCasal()) return "";
   return '<div class="modos">'+[["eu",L("Eu")],["nos",L("Nós")],["total","Total"]].map(([k,n]) => '<button class="'+(modo === k ? "on" : "")+'" data-modo="'+k+'">'+n+'</button>').join("")+'</div>';
@@ -1067,6 +1078,7 @@ function heroiAtual(){
     const quem = Math.abs(n.acerto) < 0.5 ? L("Vocês estão quites") : n.acerto > 0 ? '<b>'+esc(p)+L('</b> te deve <b>')+din(n.acerto)+'</b>' : L('Você deve <b>')+din(-n.acerto)+'</b> a <b>'+esc(p)+'</b>';
     h += '<div class="acerto">'+bolinha(S.eu.id)+L(' pagou ')+din(n.pagoEu)+' &nbsp; '+bolinha(S.parceiro.id)+L(' pagou ')+din(n.pagoPar)+'<br>'+quem+L(' (divisão 50/50 do que é “Nós”)</div>');
   }
+  if (temCasal()) h += L('<p class="rel-mais">Segure para ver por que o “Saiu” muda →</p>');
   h += '</section>';
   return h;
 }
@@ -1626,6 +1638,20 @@ function relogioDia(){
     + L('<div class="tot"><span>Total de hoje</span><span></span><span>')+din(h.gasto)+'</span></div></div>';
   return out + L('<p class="rel-mais">Segure para ver como é calculado →</p>') + '</section>';
 }
+/** De onde vem o "Saiu": o mesmo mês visto como Eu, Nós e Total. */
+function folhaSaiu(){
+  const a = extr.ano, m = extr.mes, agoraMs = Date.now();
+  const d = S.todos.filter(g => g.t !== "r" && g.q <= agoraMs && noMes(g.q, a, m));
+  const soma = f => d.filter(f).reduce((x, g) => x + g.v, 0);
+  const pEu = soma(meu), pNos = soma(g => g.sh), pTot = soma(() => true), pPar = soma(g => !meu(g)), pEuNos = soma(g => meu(g) && g.sh);
+  const lin = (k, t, v, nota) => '<div class="rel-det'+(modo === k ? " tot" : "")+'"><span>'+t+(modo === k ? ' ✓' : '')+'<small>'+nota+'</small></span><b>'+din(v)+'</b></div>';
+  abrirFolha('<h3>'+L("Por que o “Saiu” muda")+'</h3><p class="nota">'+L("O valor depende de qual aba está aberta. O mês é o mesmo; muda quais lançamentos entram na conta.")+'</p><div class="rel-dets">'
+    + lin("eu", L("Eu"), pEu, L("tudo o que você lançou (pessoal + compartilhado)"))
+    + lin("nos", L("Nós"), pNos, L("só o marcado como “Nós”, de vocês dois"))
+    + lin("total", "Total", pTot, L("tudo: o seu (")+din(pEu)+L(") + o do parceiro(a) (")+din(pPar)+")")
+    + '</div><p class="nota">'+L("Compartilhados que você lançou: ")+din(pEuNos)+L(". Eles aparecem em Eu, em Nós e em Total, mas contam uma vez só no Total.")+'</p>'
+    + '<button class="btn" id="saiuOk">'+L("Entendi")+'</button>', f => { $("#saiuOk", f).onclick = () => fecharFolha(); });
+}
 /** Folha com o passo a passo do relógio: de onde vem cada número. */
 function folhaRelogio(){
   const h = numerosHoje(), n = numerosMes();
@@ -1671,7 +1697,12 @@ function falaNota(g){
 function telaFeed(){
   const atual = extr.ano === MES_ATUAL.ano && extr.mes === MES_ATUAL.mes;
   let h = bannerAtualizacao() + seletorModo() + carrossel();
-  h += atual ? relogioDia() + heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico();
+  const resumo = temCasal() && modo === "total";     // casal: Total = resumos; Eu e Nós = extrato e contas comprometidas
+  if (temCasal()) h += '<p class="modo-nota">'+(modo === "total" ? L("Resumo do casal: tudo o que entrou e saiu, seu e do parceiro(a).") : modo === "eu" ? L("Extrato só seu: o que você lançou, pessoal e compartilhado.") : L("Extrato do casal: só o que está marcado como “Nós”."))+'</p>';
+  if (resumo) h += (atual ? relogioDia() + heroiAtual() + insightAtual() : resumoMes()) + grafico()
+    + '<div class="ir-extrato"><button class="btn sec" data-irmodo="eu">'+L("Ver meu extrato")+'</button><button class="btn sec" data-irmodo="nos">'+L("Ver extrato do casal")+'</button></div>';
+  else h += (temCasal() ? (atual ? heroiAtual() : resumoMes()) : (atual ? relogioDia() + heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico()));
+  if (resumo) return h;
   h += L('<div class="controles"><input class="busca" id="busca" placeholder="Buscar por descrição ou categoria" value="')+esc(extr.busca)+'">'
     + '<div class="filtros">'+[["todas",L("Todas")],["d",L("Saídas")],["r",L("Entradas")]].map(([k,n]) => '<button class="chip'+(extr.tipo === k ? " on" : "")+'" data-tipo="'+k+'">'+n+'</button>').join("")
     + '<span style="flex:1"></span>'+[["cartoes",L("Cartões")],["lista",L("Lista")]].map(([k,n]) => '<button class="chip'+(vista === k ? " on" : "")+'" data-vista="'+k+'">'+n+'</button>').join("")+'</div>'
@@ -2139,14 +2170,9 @@ function ligarResto(){
   };
   $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
   $$("[data-nova-entrada]").forEach(b => b.onclick = () => folhaNovo(true));
-  const rel = $(".relogio"); if (rel && !rel.querySelector("[data-nova-entrada]")) {
-    let t = null, x0 = 0, y0 = 0;
-    const parar = () => { clearTimeout(t); t = null; };
-    rel.addEventListener("pointerdown", e => { if (e.target.closest("input,button")) return; x0 = e.clientX; y0 = e.clientY; parar(); t = setTimeout(() => { t = null; vibrar(); folhaRelogio(); }, 450); });
-    rel.addEventListener("pointermove", e => { if (t && (Math.abs(e.clientX - x0) > 10 || Math.abs(e.clientY - y0) > 10)) parar(); });
-    ["pointerup", "pointercancel", "pointerleave"].forEach(ev => rel.addEventListener(ev, parar));
-    rel.addEventListener("contextmenu", e => e.preventDefault());
-  }
+  const rel = $(".relogio"); if (rel && !rel.querySelector("[data-nova-entrada]")) segurar(rel, folhaRelogio);
+  const her = $(".heroi"); if (her && temCasal()) segurar(her, folhaSaiu);
+  $$("[data-irmodo]").forEach(b => b.onclick = () => { modo = b.dataset.irmodo; gravarPref("modo", modo); preparar(); render(false); window.scrollTo(0, 0); });
 
   // meses, filtros e busca
   $$("[data-mes]").forEach(b => b.onclick = () => { const [a, m] = b.dataset.mes.split("-").map(Number); extr.ano = a; extr.mes = m; render(false); });
