@@ -45,6 +45,8 @@ main{padding:0 0 110px}
 .relogio{margin:0 18px 16px;padding:16px;border-radius:22px;background:var(--surface);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .modo-nota{margin:0 18px 8px;font-size:.78rem;color:var(--muted)}
 .ir-extrato{display:flex;gap:10px;margin:0 18px 18px}.ir-extrato .btn{flex:1;margin:0}
+.legenda .leg{background:none;color:inherit;font:inherit;padding:0}
+.visao{display:flex;gap:10px;align-items:center;margin:0 18px 12px}.visao .modos{flex:1;margin:0}
 .acerto-linha{margin:-6px 18px 14px;font-size:.84rem;color:var(--muted);text-align:center}
 .rel-mais{margin:10px 0 0;text-align:right;font-size:.74rem;color:var(--muted)}
 .rel-dets{margin:6px 22px 10px}.rel-det{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)}
@@ -531,7 +533,7 @@ const ponte = window.App;
 const FATURA = location.hash === "#fatura";
 const RAPIDO = location.hash === "#rapido" || FATURA;
 const IOS = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.financas);
-let S = null, aba = "feed", modo = (() => { try { return localStorage.getItem("fin.modo") || "total"; } catch(e){ return "total"; } })(), limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
+let S = null, aba = "feed", modo = "total", limitePosts = 40, folhaAberta = null, ultimoToque = {el:null,t:0};
 let extr = {ano:0, mes:0, tipo:"todas", ordem:"data", busca:""};
 
 /* Categorias em dois níveis ("Casa › Luz"), vindas de assets/categorias.json + as criadas pela pessoa */
@@ -966,7 +968,6 @@ function precisaTutorial(){ return !RAPIDO && S && S.nuvem.logado && !(S.conquis
 function passosTutorial(){
   const P = [];
   P.push({t:L("👋 Bem-vindo(a) ao Finanças"), p:L("Em um minuto mostramos o que cada área faz. Toque em Próximo para seguir."), d:L("O tutorial aparece uma vez, a cada versão nova.")});
-  if (temCasal()) P.push({sel:".modos", t:L("Eu · Nós · Total"), p:L("Troque de visão: só o que é seu, só o que é do casal, ou tudo junto."), d:L("Um gasto marcado como “Nós” entra no acerto de contas 50/50.")});
   P.push({sel:"#meses", t:L("Meses"), p:L("Deslize para ver meses anteriores ou os próximos. Os tracejados são previsão: contas e entradas já programadas."), d:L("Toque num mês para abrir o resumo dele.")});
   P.push({sel:".heroi", t:L("Resumo do mês"), p:L("Quanto está livre agora, o que já está comprometido com contas e quanto deve sobrar no fim do mês. As trocas não entram aqui."), d:L("Registe o que entra (salário, extras) para o “livre” aparecer.")});
   P.push({sel:"#graf", t:L("Para onde vai"), p:L("Três gráficos: Categorias, Dia a dia e Mês a mês. Toque numa fatia, barra ou mês para ver o valor exato."), d:L("Tocar de novo tira o destaque.")});
@@ -1041,32 +1042,27 @@ function segurar(el, fn){
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => el.addEventListener(ev, parar));
   el.addEventListener("contextmenu", e => e.preventDefault());
 }
-function seletorModo(){
-  if (!temCasal()) return "";
-  return '<div class="modos">'+[["eu",L("Eu")],["nos",L("Nós")],["total","Total"]].map(([k,n]) => '<button class="'+(modo === k ? "on" : "")+'" data-modo="'+k+'">'+n+'</button>').join("")+'</div>';
-}
+function seletorModo(){ return ""; }   // casal: sempre o total conjunto; Eu/Nós só dentro dos detalhes
 
 /* ================= Início ================= */
 let vista = (() => { try { return localStorage.getItem("fin.vista") || "cartoes"; } catch(e){ return "cartoes"; } })();
 function heroiAtual(){
   const n = numerosMes();
   const mes = cap(MESES_L[MES_ATUAL.mes]);
-  const rotModo = temCasal() ? (modo === "eu" ? L(" · só você") : modo === "nos" ? L(" · do casal") : L(" · tudo")) : "";
-  let h = '<section class="heroi"><div class="mes">'+mes+L(' até agora')+rotModo+'</div>';
+  let h = '<section class="heroi"><div class="mes">'+mes+L(' até agora')+(temCasal() ? L(' · casal') : '')+'</div>';
   const temEntradas = n.entrou > 0 || S.contasMes.some(c => c.e);
   if (temEntradas){
     h += L('<div class="duas"><div><small>Livre agora</small><div class="big ')+(n.livre < 0 ? "neg" : "")+'" data-contar="'+n.livre+'">'+din(n.livre)+'</div></div>'
-      + L('<div><small>Comprometido</small><div class="med">')+din(n.comprometido)+'</div>'
+      + '<div data-comp><small>'+L('Comprometido')+' ›</small><div class="med">'+din(n.comprometido)+'</div>'
       + '</div></div>';
     const tot = Math.max(n.entrou, n.saiu, 1);
     h += '<div class="fluxo"><i class="e" data-w="'+(n.entrou/tot/2)+'"></i><i class="s" data-w="'+(n.saiu/tot/2)+'"></i></div>'
-      + L('<div class="legenda"><span>Entrou ')+din(n.entrou)+L('</span><span>Saiu ')+din(n.saiu)+'</span>'+(n.sep ? L('<span>Guardado ')+din(n.sep)+'</span>' : '')+'</div>';
+      + '<div class="legenda"><button class="leg" data-orig="r">'+L('Entrou ')+din(n.entrou)+' ›</button><button class="leg" data-orig="d">'+L('Saiu ')+din(n.saiu)+' ›</button>'+(n.sep ? '<span>'+L('Guardado ')+din(n.sep)+'</span>' : '')+'</div>';
   } else {
     h += '<div class="big" data-contar="'+n.saiu+'">'+din(n.saiu)+'</div>' + equivalencia(n.saiu)
       + (n.comprometido > 0 ? L('<div class="linha-info">Comprometido: <b>')+din(n.comprometido)+'</b>'+(n.compFuturo > 0 ? ' ('+din(n.compMes)+L(' este mês, ')+din(n.compFuturo)+L(' depois)') : '')+'</div>' : '')
       + (modo === "nos" ? '' : L('<button class="dica-btn" data-nova-entrada>Registre o que entra (salário, extras) para ver quanto está livre →</button>'));
   }
-  if (temCasal()) h += L('<p class="rel-mais">Segure para ver por que o “Saiu” muda →</p>');
   h += '</section>';
   return h;
 }
@@ -1092,7 +1088,7 @@ function insightAtual(){
 }
 function carrossel(){
   let h = '<div class="meses" id="meses">';
-  for (let i = -5; i <= 0; i++){
+  for (let i = -5; i <= (verFut && visao === "mes" ? 6 : 0); i++){
     const d = new Date(MES_ATUAL.ano, MES_ATUAL.mes + i, 1);
     const on = d.getFullYear() === extr.ano && d.getMonth() === extr.mes;
     h += '<button class="mes-chip'+(on ? " on" : "")+(i > 0 ? " futuro" : "")+'" data-mes="'+d.getFullYear()+"-"+d.getMonth()+'"><small>'+d.getFullYear()+'</small>'+(i === 0 ? L("Hoje") : cap(MESES[d.getMonth()]))+'</button>';
@@ -1122,15 +1118,17 @@ const passaFiltro = x => {
 };
 function cartoesMes(){
   const {ano, mes} = extr;
-  const prev = projetadas(ano, mes).filter(passaFiltro).sort((a,b) => a.q - b.q);
-  const fut = S.fut.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).sort((a,b) => a.q - b.q);
+  const diaV = visao === "dia", hIni = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime(), hFim = hIni + 86400000;
+  const hojeOuFut = x => !diaV || verFut || (x.q >= hIni && x.q < hFim);   // visão diária: só o de hoje (ou também o que vem, se "Ver futuros")
+  const prev = projetadas(ano, mes).filter(passaFiltro).filter(hojeOuFut).sort((a,b) => a.q - b.q);
+  const fut = S.fut.filter(g => noMes(g.q, ano, mes) && passaFiltro(g)).filter(hojeOuFut).sort((a,b) => a.q - b.q);
   const somaP = t => prev.concat(fut).filter(x => (x.t === "r") === t).reduce((a,x) => a + x.v, 0);
   const todosP = prev.concat(fut), recP = todosP.filter(x => x.t === "r"), pagP = todosP.filter(x => x.t !== "r");
   const bloco = (lista, titulo) => lista.length ? L('<div class="dia">')+titulo+' · '+din(lista.reduce((a,x) => a + x.v, 0))+'</div>' + lista.map(x => x.prev ? linhaExtrato(x) : post(x)).join("") : "";
   let h = bloco(recP, L("Pendente a receber")) + bloco(pagP, L("Comprometido a pagar"));
   const semFiltro = extr.tipo === "todas" && !extr.busca.trim();
   // trocas não entram no feed nem nos totais: só aparecem na barra do destino
-  const itens = S.vis.filter(g => g.q <= Date.now() && noMes(g.q, ano, mes) && passaFiltro(g)).map(g => ({k:"g", q:g.q, g}))
+  const itens = S.vis.filter(g => g.q <= Date.now() && noMes(g.q, ano, mes) && passaFiltro(g) && (!diaV || g.q >= hIni)).map(g => ({k:"g", q:g.q, g}))
     .sort((a,b) => b.q - a.q);
   if (!itens.length && !prev.length && !fut.length){
     if (!semFiltro) return L('<div class="vazio">Nada encontrado com esses filtros.</div>');
@@ -1560,6 +1558,8 @@ setInterval(tickGrafico, 20000);
 
 /* ================= Dinheiro de hoje: quanto posso gastar e quanto tempo dura ================= */
 const DIA_INI = 7, DIA_FIM = 23;   // horas acordado
+let visao = (() => { try { return localStorage.getItem("fin.visao") || "mes"; } catch(e){ return "mes"; } })();   // "mes" | "dia"
+let verFut = (() => { try { return localStorage.getItem("fin.verFut") === "1"; } catch(e){ return false; } })();
 let tema = lerPrefTema();
 function lerPrefTema(){ try { const t = localStorage.getItem("fin.tema") || "escuro"; return t === "centavo" ? "nota" : t; } catch(e){ return "escuro"; } }
 let fundoTema = (() => { try { const f = localStorage.getItem("fin.fundoTema") || "verde"; return {papel:"verde", kraft:"ouro"}[f] || f; } catch(e){ return "verde"; } })();
@@ -1639,19 +1639,38 @@ function relogioDia(){
     + L('<div class="tot"><span>Total de hoje</span><span></span><span>')+din(h.gasto)+'</span></div></div>';
   return out + L('<p class="rel-mais">Segure para ver como é calculado →</p>') + '</section>';
 }
-/** De onde vem o "Saiu": o mesmo mês visto como Eu, Nós e Total. */
-function folhaSaiu(){
-  const a = extr.ano, m = extr.mes, agoraMs = Date.now();
-  const d = S.todos.filter(g => g.t !== "r" && g.q <= agoraMs && noMes(g.q, a, m));
-  const soma = f => d.filter(f).reduce((x, g) => x + g.v, 0);
-  const pEu = soma(meu), pNos = soma(g => g.sh), pTot = soma(() => true), pPar = soma(g => !meu(g)), pEuNos = soma(g => meu(g) && g.sh);
-  const lin = (k, t, v, nota) => '<div class="rel-det'+(modo === k ? " tot" : "")+'"><span>'+t+(modo === k ? ' ✓' : '')+'<small>'+nota+'</small></span><b>'+din(v)+'</b></div>';
-  abrirFolha('<h3>'+L("Por que o “Saiu” muda")+'</h3><p class="nota">'+L("O valor depende de qual aba está aberta. O mês é o mesmo; muda quais lançamentos entram na conta.")+'</p><div class="rel-dets">'
-    + lin("eu", L("Eu"), pEu, L("tudo o que você lançou (pessoal + compartilhado)"))
-    + lin("nos", L("Nós"), pNos, L("só o marcado como “Nós”, de vocês dois"))
-    + lin("total", "Total", pTot, L("tudo: o seu (")+din(pEu)+L(") + o do parceiro(a) (")+din(pPar)+")")
-    + '</div><p class="nota">'+L("Compartilhados que você lançou: ")+din(pEuNos)+L(". Eles aparecem em Eu, em Nós e em Total, mas contam uma vez só no Total.")+'</p>'
-    + '<button class="btn" id="saiuOk">'+L("Entendi")+'</button>', f => { $("#saiuOk", f).onclick = () => fecharFolha(); });
+/** Detalhe de onde vêm as entradas ("r") ou as saídas ("d") do mês: por pessoa e por categoria. */
+function folhaOrigem(tipo, filtro){
+  filtro = filtro || "todos";
+  const ent = tipo === "r", a = extr.ano, m = extr.mes, ag = Date.now();
+  const base = S.vis.filter(g => (g.t === "r") === ent && g.q <= ag && noMes(g.q, a, m));
+  const lista = base.filter(g => filtro === "eu" ? meu(g) : filtro === "nos" ? !!g.sh : true);
+  const tot = lista.reduce((x, g) => x + g.v, 0);
+  const grupos = {};
+  lista.forEach(g => { const k = ent ? catNome(g.c) : catPai(g.c); const o = grupos[k] || (grupos[k] = {v: 0, c: g.c}); o.v += g.v; });
+  const linhas = Object.entries(grupos).sort((x, y) => y[1].v - x[1].v);
+  const barra = v => '<i style="display:block;height:5px;border-radius:5px;background:var(--marca);width:'+(tot ? Math.round(v / tot * 100) : 0)+'%;margin-top:4px"></i>';
+  const lin = (t, v, extra) => '<div class="rel-det"><span>'+t+(extra || "")+'</span><b>'+din(v)+'</b></div>';
+  const pessoas = temCasal() ? '<div class="rotulo">'+L("Por pessoa")+'</div><div class="rel-dets">'
+    + lin(esc(S.eu.nome), lista.filter(meu).reduce((x, g) => x + g.v, 0)) + lin(esc(S.parceiro.nome), lista.filter(g => !meu(g)).reduce((x, g) => x + g.v, 0)) + '</div>' : "";
+  const filtros = temCasal() ? '<div class="chips">'+[["todos",L("Casal")],["eu",L("Só eu")],["nos",L("Compartilhado")]].map(([k, n]) => '<button class="chip'+(filtro === k ? " on" : "")+'" data-f="'+k+'">'+n+'</button>').join("")+'</div>' : "";
+  abrirFolha('<h3>'+(ent ? L("De onde vêm as entradas") : L("Para onde vão as saídas"))+'</h3><div class="detalhe-v'+(ent ? " pos" : "")+'">'+din(tot)+'</div>'+filtros+pessoas
+    + '<div class="rotulo">'+(ent ? L("Por origem") : L("Por categoria"))+'</div><div class="rel-dets">'
+    + (linhas.length ? linhas.map(([k, o]) => '<div class="rel-det"><span>'+cat(o.c)[0]+' '+esc(k)+barra(o.v)+'</span><b>'+din(o.v)+'</b></div>').join("") : '<p class="nota">'+L("Nada neste mês.")+'</p>')
+    + '</div><button class="btn" id="origOk">'+L("Fechar")+'</button>', f => {
+    $("#origOk", f).onclick = () => fecharFolha();
+    $$("[data-f]", f).forEach(b => b.onclick = () => { fecharFolha(true); folhaOrigem(tipo, b.dataset.f); });
+  });
+}
+/** Contas comprometidas: o que ainda vence neste mês e o que vem depois. */
+function folhaComprometido(){
+  const n = numerosMes();
+  const abertas = S.contasMes.filter(c => !c.e && (c.ocs || []).some(o => !o.paga));
+  const lin = (t, v, nota) => '<div class="rel-det"><span>'+t+(nota ? '<small>'+nota+'</small>' : '')+'</span><b>'+din(v)+'</b></div>';
+  abrirFolha('<h3>'+L("Comprometido")+'</h3><div class="detalhe-v">'+din(n.comprometido)+'</div><div class="rel-dets">'
+    + lin(L("Ainda vence neste mês"), n.compMes) + abertas.map(c => lin('&nbsp;&nbsp;'+esc(c.n), c.v * (c.ocs || []).filter(o => !o.paga).length, LE("dia ","day ")+c.dia)).join("")
+    + (n.compFuturo > 0 ? lin(L("Parcelas dos meses seguintes"), n.compFuturo) : "")
+    + '</div><button class="btn" id="compOk">'+L("Fechar")+'</button>', f => { $("#compOk", f).onclick = () => fecharFolha(); });
 }
 /** Folha com o passo a passo do relógio: de onde vem cada número. */
 function folhaRelogio(){
@@ -1697,14 +1716,14 @@ function falaNota(g){
 
 function telaFeed(){
   const atual = extr.ano === MES_ATUAL.ano && extr.mes === MES_ATUAL.mes;
-  let h = bannerAtualizacao() + seletorModo() + carrossel();
-  vista = "cartoes";   // só cartões: sem lista nem calendário de futuros
-  const resumo = temCasal() && modo === "total";     // casal: Total = resumos; Eu e Nós = extrato e contas comprometidas
-  if (temCasal()) h += '<p class="modo-nota">'+(modo === "total" ? L("Resumo do casal: tudo o que entrou e saiu, seu e do parceiro(a).") : modo === "eu" ? L("Extrato só seu: o que você lançou, pessoal e compartilhado.") : L("Extrato do casal: só o que está marcado como “Nós”."))+'</p>';
-  if (resumo) h += (atual ? relogioDia() + heroiAtual() + acertoLinha() + insightAtual() : resumoMes()) + grafico()
-    + '<div class="ir-extrato"><button class="btn sec" data-irmodo="eu">'+L("Ver meu extrato")+'</button><button class="btn sec" data-irmodo="nos">'+L("Ver extrato do casal")+'</button></div>';
-  else h += (temCasal() ? (atual ? heroiAtual() : resumoMes()) : (atual ? relogioDia() + heroiAtual() + insightAtual() + grafico() : resumoMes() + grafico()));
-  if (resumo) return h;
+  vista = "cartoes";
+  const dia = visao === "dia";
+  if (dia){ extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes; }
+  let h = bannerAtualizacao() + (dia ? "" : carrossel());
+  h += '<div class="visao"><div class="modos">'+[["mes",L("Mensal")],[L("dia"),L("Diária")]].map(([k, n]) => '<button class="'+(visao === k ? "on" : "")+'" data-visao="'+k+'">'+n+'</button>').join("")+'</div>'
+    + '<button class="chip'+(verFut ? " on" : "")+'" data-ver-fut>'+L("Ver futuros")+'</button></div>';
+  if (dia) h += relogioDia();
+  else h += atual ? relogioDia() + heroiAtual() + grafico() : resumoMes() + grafico();
   h += L('<div class="controles"><input class="busca" id="busca" placeholder="Buscar por descrição ou categoria" value="')+esc(extr.busca)+'">'
     + '<div class="filtros">'+[["todas",L("Todas")],["d",L("Saídas")],["r",L("Entradas")]].map(([k,n]) => '<button class="chip'+(extr.tipo === k ? " on" : "")+'" data-tipo="'+k+'">'+n+'</button>').join("")
     +'</div>'
@@ -1874,9 +1893,9 @@ function pagExperiencia(){
     + L('<div class="rotulo">Tema</div>') + chips([["escuro",L("Padrão")],["nota",L("💵 Nota de dinheiro")]], tema, "data-tema")
     + (tema === "nota" ? L('<div class="rotulo">Fundo do tema</div>') + chips([["verde",L("Verde")],["azul",L("Azul")],["ouro",L("Ouro")],["noite",L("Noite")]], fundoTema, "data-fundo") : '')
     + L('<p class="nota">Nota de dinheiro: visual de cédula com selo de cifrão e comentários sobre cada gasto.</p>')
-    + L('<div class="rotulo">Lista do mês abre em</div>') + chips([["cartoes",L("Cartões")],["lista",L("Lista")]], vista, "data-vpad")
+    + L('<div class="rotulo">Visão ao abrir</div>') + chips([["mes",L("Mensal")],[L("dia"),L("Diária")]], visao, "data-visao-pad")
+    + L('<div class="rotulo">Meses e gastos futuros</div>') + chips([["0",L("Escondidos")],["1",L("Visíveis")]], verFut ? "1" : "0", "data-fut-pad")
     + L('<div class="rotulo">Gráfico abre em</div>') + chips(GRAF_ABAS, grafVista, "data-gpad")
-    + (temCasal() ? L('<div class="rotulo">Ao abrir, mostrar</div>') + chips([["total","Total"],["eu",L("Só eu")],["nos",L("Nós")]], lerPref("modo", "total"), "data-mpad") : '')
     + L('<p class="nota">As referências dos equivalentes (“x cafés”, horas de trabalho) ficam em Trocas.</p>');
 }
 const PRO = () => S.pro || {};
@@ -2154,7 +2173,10 @@ function ligarResto(){
   });
   const pv = $("#pagVoltar"); if (pv) pv.onclick = () => { perfilPag = null; render(false); };
   ligarCategorias(); ligarCarteiras();
-  $$("[data-vpad]").forEach(b => b.onclick = () => { vista = b.dataset.vpad; gravarPref("vista", vista); render(false); });
+  $$("[data-visao-pad]").forEach(b => b.onclick = () => { visao = b.dataset.visaoPad; gravarPref("visao", visao); render(false); });
+  $$("[data-fut-pad]").forEach(b => b.onclick = () => { verFut = b.dataset.futPad === "1"; gravarPref("verFut", verFut ? "1" : "0"); if (!verFut) { extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes; } render(false); });
+  $$("[data-visao]").forEach(b => b.onclick = () => { visao = b.dataset.visao; gravarPref("visao", visao); if (visao === "dia") { extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes; } vibrar(); render(false); });
+  const fb = $("[data-ver-fut]"); if (fb) fb.onclick = () => { verFut = !verFut; gravarPref("verFut", verFut ? "1" : "0"); if (!verFut) { extr.ano = MES_ATUAL.ano; extr.mes = MES_ATUAL.mes; } vibrar(); render(false); };
   $$("[data-gpad]").forEach(b => b.onclick = () => { grafVista = b.dataset.gpad; gravarPref("graf", grafVista); render(false); });
   $$("[data-fundo]").forEach(b => b.onclick = () => { fundoTema = b.dataset.fundo; gravarPref("fundoTema", fundoTema); aplicarTema(); vibrar(); render(false); });
   $$("[data-lang]").forEach(b => b.onclick = () => {
@@ -2173,8 +2195,8 @@ function ligarResto(){
   $$("[data-mpad]").forEach(b => b.onclick = () => { gravarPref("modo", b.dataset.mpad); modo = b.dataset.mpad; preparar(); render(false); });
   $$("[data-nova-entrada]").forEach(b => b.onclick = () => folhaNovo(true));
   const rel = $(".relogio"); if (rel && !rel.querySelector("[data-nova-entrada]")) segurar(rel, folhaRelogio);
-  const her = $(".heroi"); if (her && temCasal()) segurar(her, folhaSaiu);
-  $$("[data-irmodo]").forEach(b => b.onclick = () => { modo = b.dataset.irmodo; gravarPref("modo", modo); preparar(); render(false); window.scrollTo(0, 0); });
+  $$("[data-orig]").forEach(b => b.onclick = () => folhaOrigem(b.dataset.orig));
+  const cm = $("[data-comp]"); if (cm) cm.onclick = () => folhaComprometido();
 
   // meses, filtros e busca
   $$("[data-mes]").forEach(b => b.onclick = () => { const [a, m] = b.dataset.mes.split("-").map(Number); extr.ano = a; extr.mes = m; render(false); });

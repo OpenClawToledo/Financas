@@ -903,5 +903,21 @@
 "“Sem conta” não mexe em nenhum saldo; só as contas cadastradas entram no cálculo.": "“No account” doesn't touch any balance; only the accounts you added count.",
 " te deve ": " owes you ",
 "Você deve ": "You owe ",
-" (compartilhados)": " (shared)"
+" (compartilhados)": " (shared)",
+" · casal": " · couple",
+"Por pessoa": "By person",
+"Compartilhado": "Shared",
+"De onde vêm as entradas": "Where the income comes from",
+"Para onde vão as saídas": "Where the spending goes",
+"Por origem": "By source",
+"Por categoria": "By category",
+"Ainda vence neste mês": "Still due this month",
+"Parcelas dos meses seguintes": "Installments in later months",
+"Mensal": "Monthly",
+"Diária": "Daily",
+"Ver futuros": "Show upcoming",
+"Visão ao abrir": "View on open",
+"Meses e gastos futuros": "Upcoming months and expenses",
+"Escondidos": "Hidden",
+"Visíveis": "Visible"
 }
